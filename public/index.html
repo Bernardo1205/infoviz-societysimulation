@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1120" />
+  <meta name="theme-color" content="#000000" />
   <title>Ciudad Prosperidad · Simulador 3D de Crecimiento vs. Desigualdad</title>
   <meta name="description" content="Simulador económico interactivo en 3D: compara cómo el crecimiento económico y la desigualdad afectan a la pobreza absoluta de una ciudad." />
 
@@ -13,8 +13,8 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', 'Inter', 'system-ui', 'sans-serif'],
           },
         },
       },
@@ -22,7 +22,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
@@ -37,44 +37,113 @@
   </script>
 
   <style>
-    html, body { background: #0b1120; }
-    body { -webkit-font-smoothing: antialiased; }
+    :root {
+      --c-good: #30d158;
+      --c-warn: #ffd60a;
+      --c-bad: #ff453a;
+      --c-low: #ff9f0a;
+      --c-mid: #64d2ff;
+      --c-high: #bf5af2;
+    }
+    html, body { background: #000; }
+    body { -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; }
+    .font-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+    .ambient {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(40% 35% at 15% 70%, rgba(10, 132, 255, 0.28), transparent 70%),
+        radial-gradient(35% 30% at 85% 85%, rgba(191, 90, 242, 0.22), transparent 70%),
+        radial-gradient(30% 25% at 60% 55%, rgba(48, 209, 88, 0.12), transparent 70%),
+        #000;
+    }
+
+    .glass {
+      position: relative;
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.035) 50%, rgba(255, 255, 255, 0.07) 100%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+      backdrop-filter: blur(30px) saturate(180%);
+      border-radius: 28px;
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+        inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
+        0 24px 48px -24px rgba(0, 0, 0, 0.7);
+    }
+    .glass::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.04) 32%, rgba(255, 255, 255, 0.02) 68%, rgba(255, 255, 255, 0.22));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .glass-pill { border-radius: 9999px; }
+    .glass-btn { transition: transform 0.2s ease, background 0.2s ease; }
+    .glass-btn:hover { background: linear-gradient(160deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08)); }
+    .glass-btn:active { transform: scale(0.96); }
+    .glass-btn:focus-visible, .seg:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+    .inset-well {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .hairline { border-color: rgba(255, 255, 255, 0.08); }
+
+    .t-good { color: var(--c-good); }
+    .t-warn { color: var(--c-warn); }
+    .t-bad { color: var(--c-bad); }
+    .tx-low { color: var(--c-low); }
+    .tx-mid { color: var(--c-mid); }
+    .tx-high { color: var(--c-high); }
+    .dot-low { background: var(--c-low); }
+    .dot-mid { background: var(--c-mid); }
+    .dot-high { background: var(--c-high); }
+    .is-active { color: var(--c-good); }
 
     .range {
       -webkit-appearance: none;
       appearance: none;
       width: 100%;
-      height: 8px;
+      height: 6px;
       border-radius: 9999px;
-      background: var(--track, #334155);
+      background: linear-gradient(to right, var(--accent, #fff) var(--fill, 50%), rgba(255, 255, 255, 0.14) var(--fill, 50%));
       outline: none;
       cursor: pointer;
     }
-    .range:focus-visible { box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.45); }
+    .range:focus-visible { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18); }
     .range::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 22px;
-      height: 22px;
+      width: 26px;
+      height: 26px;
       border-radius: 9999px;
-      background: #f8fafc;
-      border: 4px solid #0b1120;
-      box-shadow: 0 0 0 2px #f8fafc, 0 4px 12px rgba(0, 0, 0, 0.5);
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
       transition: transform 0.15s ease;
     }
-    .range::-webkit-slider-thumb:hover { transform: scale(1.12); }
+    .range:active::-webkit-slider-thumb { transform: scale(1.1); }
     .range::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
+      width: 24px;
+      height: 24px;
+      border: 0;
       border-radius: 9999px;
-      background: #f8fafc;
-      border: 4px solid #0b1120;
-      box-shadow: 0 0 0 2px #f8fafc;
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
     }
 
-    .panel-scroll::-webkit-scrollbar { width: 8px; }
-    .panel-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+    .panel-scroll::-webkit-scrollbar { width: 6px; }
+    .panel-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 8px; }
     .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+
+    .no-scrollbar { scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
 
     .district-label {
       position: absolute;
@@ -91,212 +160,191 @@
 
     @media (prefers-reduced-motion: reduce) {
       .fade-in { animation: none; }
+      .glass-btn, .range::-webkit-slider-thumb { transition: none; }
     }
   </style>
 </head>
 
-<body class="font-sans text-slate-200 lg:h-screen lg:overflow-hidden">
+<body class="font-sans text-white lg:h-screen lg:overflow-hidden">
+  <div class="ambient" aria-hidden="true"></div>
   <div class="flex flex-col lg:flex-row lg:h-screen">
 
     <!-- ================= 3D AREA ================= -->
-    <main class="relative flex-1 h-[58vh] lg:h-screen min-h-[380px] overflow-hidden bg-slate-950" aria-label="Visor 3D de la ciudad">
+    <main class="relative flex-1 h-[62vh] lg:h-screen min-h-[380px] overflow-hidden bg-black" aria-label="Visor 3D de la ciudad">
       <div id="scene" class="absolute inset-0"></div>
       <div id="labels" class="absolute inset-0 pointer-events-none" aria-hidden="true"></div>
 
-      <!-- Top overlay -->
       <header class="absolute top-0 inset-x-0 p-3 sm:p-4 flex items-start justify-between gap-3 pointer-events-none">
-        <div class="pointer-events-auto rounded-2xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 px-4 py-3 max-w-md">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Ciudad Prosperidad</p>
-          <p class="mt-0.5 text-sm sm:text-base font-semibold text-white leading-snug">
-            Año <span id="hud-year" class="font-mono">25</span> · PIB <span id="hud-gdp" class="font-mono">—</span>
-          </p>
-          <p class="text-xs text-slate-400">
-            Pobreza absoluta: <span id="hud-poverty" class="font-mono font-semibold text-rose-300">—</span>
+        <div class="glass pointer-events-auto px-5 py-3 max-w-md">
+          <p class="text-[11px] font-medium text-white/60">Ciudad Prosperidad · Año <span id="hud-year" class="font-mono text-white/85">25</span></p>
+          <p class="text-base sm:text-lg font-semibold tracking-tight leading-snug">
+            <span id="hud-gdp" class="font-mono">—</span>
+            <span class="text-white/35 font-normal mx-1">·</span>
+            <span class="text-sm font-medium text-white/60">Pobreza</span>
+            <span id="hud-poverty" class="font-mono font-semibold t-bad">—</span>
           </p>
         </div>
 
-        <div class="pointer-events-auto flex gap-2" role="toolbar" aria-label="Controles de la vista">
-          <button id="btn-night" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Cambiar a vista nocturna" aria-pressed="false">
-            <i data-lucide="moon" class="w-5 h-5"></i>
+        <div class="glass glass-pill pointer-events-auto flex gap-1 p-1" role="toolbar" aria-label="Controles de la vista">
+          <button id="btn-night" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Cambiar a vista nocturna" aria-pressed="false">
+            <i data-lucide="moon" class="w-[18px] h-[18px]"></i>
           </button>
-          <button id="btn-rotate" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Activar rotación automática" aria-pressed="false">
-            <i data-lucide="rotate-3d" class="w-5 h-5"></i>
+          <button id="btn-rotate" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Activar rotación automática" aria-pressed="false">
+            <i data-lucide="rotate-3d" class="w-[18px] h-[18px]"></i>
           </button>
-          <button id="btn-reset" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Restablecer cámara">
-            <i data-lucide="scan" class="w-5 h-5"></i>
+          <button id="btn-reset" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Restablecer cámara">
+            <i data-lucide="scan" class="w-[18px] h-[18px]"></i>
           </button>
         </div>
       </header>
 
-      <p class="absolute bottom-3 left-3 sm:left-4 text-[11px] text-slate-300/80 bg-slate-950/60 backdrop-blur rounded-lg px-2.5 py-1.5 ring-1 ring-white/10 pointer-events-none">
+      <p class="glass glass-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-white/75 px-4 py-2 pointer-events-none whitespace-nowrap">
         <span class="hidden sm:inline">Arrastra para rotar · Rueda para zoom · Clic derecho para desplazar</span>
         <span class="sm:hidden">Arrastra para rotar · Pellizca para zoom</span>
       </p>
 
-      <div id="loading" class="absolute inset-0 grid place-items-center bg-slate-950 text-slate-400 text-sm transition-opacity duration-500">
+      <div id="loading" class="absolute inset-0 grid place-items-center bg-black text-white/60 text-sm transition-opacity duration-500">
         <div class="flex items-center gap-3">
-          <span class="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="h-2.5 w-2.5 rounded-full bg-white/80 animate-pulse"></span>
           Construyendo la ciudad…
         </div>
       </div>
     </main>
 
     <!-- ================= DASHBOARD ================= -->
-    <aside class="panel-scroll w-full lg:w-[440px] xl:w-[480px] lg:h-screen lg:overflow-y-auto bg-slate-900 border-t lg:border-t-0 lg:border-l border-white/10" aria-label="Panel de control y métricas">
-      <div class="p-5 sm:p-6 flex flex-col gap-6">
+    <aside class="panel-scroll w-full lg:w-[440px] xl:w-[480px] lg:h-screen lg:overflow-y-auto" aria-label="Panel de control y métricas">
+      <div class="mx-auto max-w-5xl p-4 sm:p-6 lg:p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-1">
 
-        <!-- Intro -->
-        <section>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Simulador económico interactivo</p>
-          <h1 class="mt-1 text-2xl font-extrabold text-white text-balance leading-tight">Crecimiento vs. Desigualdad</h1>
-          <blockquote class="mt-3 border-l-2 border-emerald-400 pl-3 text-sm text-slate-300 leading-relaxed text-pretty">
-            La desigualdad no es el problema en sí: el verdadero enemigo es la <strong class="text-white">pobreza absoluta</strong>. Un pastel que crece rápido, aunque se reparta de forma desigual, puede dar a los más pobres una porción mayor que un pastel pequeño repartido a partes iguales.
-          </blockquote>
-        </section>
+        <section class="md:col-span-2 lg:col-span-1 px-2 pt-4 pb-1">
+          <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-balance leading-[1.05]">Crecimiento vs. Desigualdad</h1>
+          <p class="mt-3 text-[15px] text-white/60 leading-relaxed text-pretty max-w-2xl">
+            El enemigo no es la desigualdad, sino la <span class="text-white">pobreza absoluta</span>. Un pastel que crece rápido puede dar más a los pobres que uno pequeño repartido a partes iguales.
+          </p>
 
-        <!-- Presets -->
-        <section aria-labelledby="presets-title">
-          <h2 id="presets-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Escenarios rápidos</h2>
-          <div class="grid grid-cols-2 gap-2" id="presets">
-            <button type="button" data-g="0.5" data-gini="0.22" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
-              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="scale" class="w-4 h-4 text-amber-400"></i>Igualdad en la miseria</span>
-              <span class="block text-[11px] text-slate-400 mt-0.5">+0,5% · Gini 0,22</span>
+          <div class="mt-5 -mx-2 px-2 py-1 flex gap-2 overflow-x-auto no-scrollbar" id="presets" role="group" aria-label="Escenarios rápidos">
+            <button type="button" data-g="0.5" data-gini="0.22" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+0,5% · Gini 0,22">
+              <i data-lucide="scale" class="w-4 h-4 text-white/60"></i>Igualdad en la miseria
             </button>
-            <button type="button" data-g="9" data-gini="0.62" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
-              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="rocket" class="w-4 h-4 text-emerald-400"></i>Crecimiento desigual</span>
-              <span class="block text-[11px] text-slate-400 mt-0.5">+9% · Gini 0,62</span>
+            <button type="button" data-g="9" data-gini="0.62" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+9% · Gini 0,62">
+              <i data-lucide="rocket" class="w-4 h-4 text-white/60"></i>Crecimiento desigual
             </button>
-            <button type="button" data-g="-2" data-gini="0.55" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
-              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="trending-down" class="w-4 h-4 text-rose-400"></i>Estancamiento</span>
-              <span class="block text-[11px] text-slate-400 mt-0.5">−2% · Gini 0,55</span>
+            <button type="button" data-g="-2" data-gini="0.55" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="−2% · Gini 0,55">
+              <i data-lucide="trending-down" class="w-4 h-4 text-white/60"></i>Estancamiento
             </button>
-            <button type="button" data-g="7" data-gini="0.32" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
-              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="sprout" class="w-4 h-4 text-sky-400"></i>Crecimiento inclusivo</span>
-              <span class="block text-[11px] text-slate-400 mt-0.5">+7% · Gini 0,32</span>
+            <button type="button" data-g="7" data-gini="0.32" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+7% · Gini 0,32">
+              <i data-lucide="sprout" class="w-4 h-4 text-white/60"></i>Crecimiento inclusivo
             </button>
           </div>
         </section>
 
-        <!-- Controls -->
-        <section aria-labelledby="controls-title" class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4 flex flex-col gap-5">
-          <h2 id="controls-title" class="sr-only">Parámetros de la simulación</h2>
+        <section aria-labelledby="controls-title" class="glass p-6 flex flex-col gap-6">
+          <h2 id="controls-title" class="text-[13px] font-medium text-white/50">Parámetros</h2>
 
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <label for="growth" class="flex items-center gap-2 text-sm font-semibold text-white">
-                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>Crecimiento económico anual
-              </label>
-              <output id="growth-out" for="growth" class="font-mono text-sm font-bold text-emerald-300">+9,0%</output>
+            <div class="flex items-baseline justify-between mb-3">
+              <label for="growth" class="text-[15px] text-white/85">Crecimiento anual</label>
+              <output id="growth-out" for="growth" class="font-mono text-[15px] font-semibold t-good">+9,0%</output>
             </div>
-            <input id="growth" class="range" type="range" min="-5" max="15" step="0.5" value="9" style="--track: linear-gradient(90deg,#f43f5e 0%,#f59e0b 25%,#334155 25%,#10b981 100%)" />
-            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono"><span>−5%</span><span>0%</span><span>+15%</span></div>
+            <input id="growth" class="range" type="range" min="-5" max="15" step="0.5" value="9" style="--accent: var(--c-good)" />
+            <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>−5%</span><span>+15%</span></div>
           </div>
 
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <label for="gini" class="flex items-center gap-2 text-sm font-semibold text-white">
-                <i data-lucide="split" class="w-4 h-4 text-violet-400"></i>Desigualdad (índice de Gini)
-              </label>
-              <output id="gini-out" for="gini" class="font-mono text-sm font-bold text-violet-300">0,62</output>
+            <div class="flex items-baseline justify-between mb-3">
+              <label for="gini" class="text-[15px] text-white/85">Desigualdad (Gini)</label>
+              <output id="gini-out" for="gini" class="font-mono text-[15px] font-semibold tx-high">0,62</output>
             </div>
-            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--track: linear-gradient(90deg,#38bdf8,#a78bfa,#e879f9)" />
-            <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0,20 · Baja</span><span>0,70 · Alta</span></div>
+            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--accent: var(--c-high)" />
+            <div class="flex justify-between text-[11px] text-white/35 mt-2"><span>0,20 Baja</span><span>0,70 Alta</span></div>
           </div>
 
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <label for="years" class="flex items-center gap-2 text-sm font-semibold text-white">
-                <i data-lucide="calendar-clock" class="w-4 h-4 text-sky-400"></i>Tiempo transcurrido
-              </label>
-              <div class="flex items-center gap-2">
-                <output id="years-out" for="years" class="font-mono text-sm font-bold text-sky-300">25 años</output>
-                <button id="btn-play" type="button" class="h-8 w-8 grid place-items-center rounded-lg bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/30 hover:bg-sky-500/25 transition" aria-label="Reproducir la evolución año a año">
+            <div class="flex items-center justify-between mb-3">
+              <label for="years" class="text-[15px] text-white/85">Tiempo</label>
+              <div class="flex items-center gap-3">
+                <output id="years-out" for="years" class="font-mono text-[15px] font-semibold text-white">25 años</output>
+                <button id="btn-play" type="button" class="glass glass-pill glass-btn h-8 w-8 grid place-items-center text-white" aria-label="Reproducir la evolución año a año">
                   <i data-lucide="play" class="w-4 h-4"></i>
                 </button>
               </div>
             </div>
-            <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--track: linear-gradient(90deg,#0ea5e9,#334155)" />
-            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono"><span>0</span><span>20</span><span>40 años</span></div>
+            <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--accent: #0a84ff" />
+            <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>0</span><span>40 años</span></div>
           </div>
 
-          <p class="text-[11px] text-slate-400 leading-relaxed rounded-lg bg-slate-900 ring-1 ring-white/5 px-3 py-2 font-mono">
-            Riqueza = $2.400 M × (1 + <span class="text-emerald-300">g</span>)<sup><span class="text-sky-300">t</span></sup>
-            <span class="block font-sans text-slate-500 mt-1">El Gini decide cómo se reparte esa riqueza entre las tres clases.</span>
+          <p class="text-[12px] text-white/40 leading-relaxed border-t hairline pt-4">
+            <span class="font-mono text-white/60">Riqueza = $2.400 M × (1 + g)<sup>t</sup></span><br />
+            El Gini decide cómo se reparte entre las tres clases.
           </p>
         </section>
 
-        <!-- Metrics -->
-        <section aria-labelledby="metrics-title">
-          <h2 id="metrics-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Métricas en tiempo real</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="landmark" class="w-3.5 h-3.5"></i>PIB total de la ciudad</p>
-              <p id="m-gdp" class="mt-1 font-mono text-lg font-bold text-white">—</p>
-              <p id="m-gdp-sub" class="text-[11px] text-emerald-300">—</p>
-            </div>
-            <div id="m-poverty-card" class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="home" class="w-3.5 h-3.5"></i>Pobreza absoluta</p>
-              <p id="m-poverty" class="mt-1 font-mono text-lg font-bold text-rose-300">—</p>
-              <div class="mt-1.5 h-1.5 rounded-full bg-slate-700 overflow-hidden" aria-hidden="true">
-                <div id="m-poverty-bar" class="h-full rounded-full bg-rose-400 transition-all duration-300" style="width:0%"></div>
-              </div>
-              <p id="m-poverty-sub" class="mt-1 text-[11px] text-slate-400">—</p>
-            </div>
+        <section aria-labelledby="metrics-title" class="glass p-6 flex flex-col">
+          <h2 id="metrics-title" class="text-[13px] font-medium text-white/50">En tiempo real</h2>
 
-            <div class="col-span-2 grid grid-cols-3 gap-2">
-              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Clase baja</p>
-                <p id="m-low" class="mt-1 font-mono text-sm sm:text-base font-bold text-amber-300">—</p>
-                <p id="m-low-sub" class="text-[10px] text-slate-400">—</p>
-              </div>
-              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-sky-400"></span>Clase media</p>
-                <p id="m-mid" class="mt-1 font-mono text-sm sm:text-base font-bold text-sky-300">—</p>
-                <p id="m-mid-sub" class="text-[10px] text-slate-400">—</p>
-              </div>
-              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-violet-400"></span>Clase alta</p>
-                <p id="m-high" class="mt-1 font-mono text-sm sm:text-base font-bold text-violet-300">—</p>
-                <p id="m-high-sub" class="text-[10px] text-slate-400">—</p>
-              </div>
+          <div class="mt-4 grid grid-cols-2 gap-6">
+            <div>
+              <p class="text-[12px] text-white/50">PIB de la ciudad</p>
+              <p id="m-gdp" class="mt-1 font-mono text-[28px] leading-none font-semibold tracking-tight">—</p>
+              <p id="m-gdp-sub" class="mt-2 text-[12px] t-good">—</p>
             </div>
-
-            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="git-compare" class="w-3.5 h-3.5"></i>Brecha alta / baja</p>
-              <p id="m-ratio" class="mt-1 font-mono text-lg font-bold text-white">—</p>
-              <p class="text-[11px] text-slate-400">veces más ingreso</p>
-            </div>
-            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
-              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="hourglass" class="w-3.5 h-3.5"></i>Fin de la pobreza</p>
-              <p id="m-years" class="mt-1 font-mono text-lg font-bold text-white">—</p>
-              <p id="m-years-sub" class="text-[11px] text-slate-400">con este ritmo</p>
+            <div id="m-poverty-card">
+              <p class="text-[12px] text-white/50">Pobreza absoluta</p>
+              <p id="m-poverty" class="mt-1 font-mono text-[28px] leading-none font-semibold tracking-tight t-bad">—</p>
+              <div class="mt-3 h-1 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                <div id="m-poverty-bar" class="h-full rounded-full transition-all duration-300" style="width:0%; background: var(--c-bad)"></div>
+              </div>
+              <p id="m-poverty-sub" class="mt-2 text-[12px] text-white/50">—</p>
             </div>
           </div>
-          <p class="mt-2 text-[11px] text-slate-500">Ingresos por persona y año. Población: 1.000.000 habitantes (50% baja · 40% media · 10% alta).</p>
+
+          <ul class="mt-6 border-t hairline divide-y divide-white/[0.06]">
+            <li class="flex items-center justify-between py-3">
+              <span class="flex items-center gap-2.5 text-[14px] text-white/80"><span class="h-2 w-2 rounded-full dot-low"></span>Clase baja</span>
+              <span class="text-right"><span id="m-low" class="font-mono text-[15px] font-semibold tx-low">—</span><span id="m-low-sub" class="ml-2 text-[12px] text-white/45">—</span></span>
+            </li>
+            <li class="flex items-center justify-between py-3">
+              <span class="flex items-center gap-2.5 text-[14px] text-white/80"><span class="h-2 w-2 rounded-full dot-mid"></span>Clase media</span>
+              <span class="text-right"><span id="m-mid" class="font-mono text-[15px] font-semibold tx-mid">—</span><span id="m-mid-sub" class="ml-2 text-[12px] text-white/45">—</span></span>
+            </li>
+            <li class="flex items-center justify-between py-3">
+              <span class="flex items-center gap-2.5 text-[14px] text-white/80"><span class="h-2 w-2 rounded-full dot-high"></span>Clase alta</span>
+              <span class="text-right"><span id="m-high" class="font-mono text-[15px] font-semibold tx-high">—</span><span id="m-high-sub" class="ml-2 text-[12px] text-white/45">—</span></span>
+            </li>
+          </ul>
+
+          <div class="mt-auto pt-3 grid grid-cols-2 gap-3">
+            <div class="inset-well px-4 py-3">
+              <p class="text-[12px] text-white/50">Brecha alta / baja</p>
+              <p id="m-ratio" class="mt-0.5 font-mono text-lg font-semibold">—</p>
+            </div>
+            <div class="inset-well px-4 py-3">
+              <p class="text-[12px] text-white/50">Fin de la pobreza</p>
+              <p id="m-years" class="mt-0.5 font-mono text-lg font-semibold">—</p>
+              <p id="m-years-sub" class="text-[11px] text-white/40">con este ritmo</p>
+            </div>
+          </div>
         </section>
 
-        <!-- Chart -->
-        <section aria-labelledby="chart-title" class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4">
-          <div class="flex items-center justify-between mb-3 gap-2">
-            <h2 id="chart-title" class="text-sm font-semibold text-white flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-4 h-4 text-slate-400"></i>Ingreso absoluto vs. línea de pobreza</h2>
-            <div class="flex rounded-lg bg-slate-800 p-0.5 text-[11px] font-semibold" role="group" aria-label="Escala del gráfico">
-              <button id="scale-log" type="button" class="px-2 py-1 rounded-md bg-slate-600 text-white" aria-pressed="true">Log</button>
-              <button id="scale-lin" type="button" class="px-2 py-1 rounded-md text-slate-400" aria-pressed="false">Lineal</button>
+        <section aria-labelledby="chart-title" class="glass p-6">
+          <div class="flex items-center justify-between mb-4 gap-2">
+            <h2 id="chart-title" class="text-[13px] font-medium text-white/50">Ingreso vs. línea de pobreza</h2>
+            <div class="inset-well glass-pill flex p-0.5 text-[12px] font-medium" role="group" aria-label="Escala del gráfico">
+              <button id="scale-log" type="button" class="seg px-3 py-1 rounded-full bg-white/20 text-white shadow-sm" aria-pressed="true">Log</button>
+              <button id="scale-lin" type="button" class="seg px-3 py-1 rounded-full text-white/50" aria-pressed="false">Lineal</button>
             </div>
           </div>
           <div class="relative h-56">
             <canvas id="chart" aria-label="Gráfico de barras de ingresos por clase social con la línea de pobreza" role="img"></canvas>
           </div>
-          <p class="mt-2 text-[11px] text-slate-500">Línea de pobreza: $1.200 por persona al año (≈ $3,3 al día).</p>
+          <p class="mt-3 text-[12px] text-white/40">Línea de pobreza: $1.200 por persona al año (≈ $3,3 al día). Población: 1 M (50% baja · 40% media · 10% alta).</p>
         </section>
 
-        <!-- Explainer -->
-        <section aria-labelledby="explainer-title" aria-live="polite">
-          <h2 id="explainer-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">¿Qué está pasando en la ciudad?</h2>
-          <div id="explainer" class="flex flex-col gap-3"></div>
+        <section aria-labelledby="explainer-title" aria-live="polite" class="glass p-6">
+          <h2 id="explainer-title" class="text-[13px] font-medium text-white/50 mb-4">Qué está pasando</h2>
+          <div id="explainer" class="flex flex-col gap-4"></div>
         </section>
 
-        <footer class="text-[11px] text-slate-500 leading-relaxed border-t border-white/10 pt-4 pb-2">
+        <footer class="md:col-span-2 lg:col-span-1 px-2 pb-4 text-[11px] text-white/35 leading-relaxed">
           Modelo didáctico simplificado. El reparto de la riqueza sigue una distribución log-normal calibrada con el índice de Gini; dentro de cada clase los ingresos varían de forma uniforme alrededor de su media. La pobreza absoluta mide la proporción de personas por debajo de una línea de ingreso fija, independiente de lo que ganen los demás.
         </footer>
       </div>
