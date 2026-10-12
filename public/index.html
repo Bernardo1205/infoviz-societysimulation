@@ -49,6 +49,42 @@
     body { -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; }
     .font-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
+    body.day-mode {
+      background: #fff;
+      color: #0f172a;
+    }
+    body.day-mode .ambient,
+    body.day-mode aside {
+      background: #fff;
+    }
+    body.day-mode .glass {
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+        inset 0 -1px 0 0 rgba(15, 23, 42, 0.08),
+        0 24px 48px -24px rgba(15, 23, 42, 0.2);
+    }
+    body.day-mode .glass::before {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(15, 23, 42, 0.08) 50%, rgba(255, 255, 255, 0.75));
+    }
+    body.day-mode [class*="text-white"] {
+      color: rgb(15 23 42 / 0.85) !important;
+    }
+    body.day-mode .inset-well {
+      background: rgba(15, 23, 42, 0.05);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+    }
+    body.day-mode .hairline {
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+    body.day-mode .range {
+      background: linear-gradient(to right, var(--accent, #0f172a) var(--fill, 50%), rgba(15, 23, 42, 0.14) var(--fill, 50%));
+    }
+    body.day-mode #explainer,
+    body.day-mode #explainer p {
+      color: #000 !important;
+    }
+
     .ambient {
       position: fixed;
       inset: 0;
@@ -1589,6 +1625,7 @@
       const btn = e.currentTarget;
       env.targetNight = env.targetNight > 0.5 ? 0 : 1;
       const isNight = env.targetNight === 1;
+      document.body.classList.toggle('day-mode', !isNight);
       btn.setAttribute('aria-pressed', String(isNight));
       btn.setAttribute('aria-label', isNight ? 'Cambiar a vista diurna' : 'Cambiar a vista nocturna');
       btn.innerHTML = `<i data-lucide="${isNight ? 'sun' : 'moon'}" class="w-5 h-5"></i>`;
