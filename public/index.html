@@ -38,12 +38,12 @@
 
   <style>
     :root {
-      --c-good: #30d158;
+      --c-good: #6ee7b7;
       --c-warn: #ffd60a;
       --c-bad: #ff453a;
-      --c-low: #ff9f0a;
-      --c-mid: #64d2ff;
-      --c-high: #bf5af2;
+      --c-low: #EEE9DA;
+      --c-mid: #BDCDD6;
+      --c-high: #6096B4;
     }
     html, body { background: #000; }
     body { -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; }
@@ -105,6 +105,36 @@
     .dot-low { background: var(--c-low); }
     .dot-mid { background: var(--c-mid); }
     .dot-high { background: var(--c-high); }
+    .district-tone-low {
+      --district-color: var(--c-low);
+      border-color: color-mix(in srgb, var(--district-color) 58%, white 42%);
+      background: color-mix(in srgb, var(--district-color) 14%, rgba(15, 23, 42, 0.78)) !important;
+    }
+    .district-tone-mid {
+      --district-color: var(--c-mid);
+      border-color: color-mix(in srgb, var(--district-color) 58%, white 42%);
+      background: color-mix(in srgb, var(--district-color) 14%, rgba(15, 23, 42, 0.78)) !important;
+    }
+    .district-tone-high {
+      --district-color: var(--c-high);
+      border-color: color-mix(in srgb, var(--district-color) 58%, white 42%);
+      background: color-mix(in srgb, var(--district-color) 14%, rgba(15, 23, 42, 0.78)) !important;
+    }
+    .district-tone-low > div > p:first-child,
+    .district-tone-mid > div > p:first-child,
+    .district-tone-high > div > p:first-child {
+      color: var(--district-color);
+    }
+    .district-tone-low [data-role="value"],
+    .district-tone-mid [data-role="value"],
+    .district-tone-high [data-role="value"] {
+      color: var(--district-color);
+    }
+    .district-tone-low > span:first-child,
+    .district-tone-mid > span:first-child,
+    .district-tone-high > span:first-child {
+      background: var(--district-color);
+    }
     .is-active { color: var(--c-good); }
 
     .range {
@@ -186,8 +216,8 @@
         </div>
 
         <div class="glass glass-pill pointer-events-auto flex gap-1 p-1" role="toolbar" aria-label="Controles de la vista">
-          <button id="btn-night" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Cambiar a vista nocturna" aria-pressed="false">
-            <i data-lucide="moon" class="w-[18px] h-[18px]"></i>
+          <button id="btn-night" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Cambiar a vista diurna" aria-pressed="true">
+            <i data-lucide="sun" class="w-[18px] h-[18px]"></i>
           </button>
           <button id="btn-rotate" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Activar rotación automática" aria-pressed="false">
             <i data-lucide="rotate-3d" class="w-[18px] h-[18px]"></i>
@@ -252,9 +282,9 @@
           <div>
             <div class="flex items-baseline justify-between mb-3">
               <label for="gini" class="text-[15px] text-white/85">Desigualdad (Gini)</label>
-              <output id="gini-out" for="gini" class="font-mono text-[15px] font-semibold tx-high">0,62</output>
+              <output id="gini-out" for="gini" class="font-mono text-[15px] font-semibold t-bad">0,62</output>
             </div>
-            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--accent: var(--c-high)" />
+            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--accent: var(--c-bad)" />
             <div class="flex justify-between text-[11px] text-white/35 mt-2"><span>0,20 Baja</span><span>0,70 Alta</span></div>
           </div>
 
@@ -268,14 +298,10 @@
                 </button>
               </div>
             </div>
-            <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--accent: #0a84ff" />
+            <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--accent: #8e8e93" />
             <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>0</span><span>40 años</span></div>
           </div>
 
-          <p class="text-[12px] text-white/40 leading-relaxed border-t hairline pt-4">
-            <span class="font-mono text-white/60">Riqueza = $2.400 M × (1 + g)<sup>t</sup></span><br />
-            El Gini decide cómo se reparte entre las tres clases.
-          </p>
         </section>
 
         <section aria-labelledby="metrics-title" class="glass p-6 flex flex-col">
@@ -336,7 +362,6 @@
           <div class="relative h-56">
             <canvas id="chart" aria-label="Gráfico de barras de ingresos por clase social con la línea de pobreza" role="img"></canvas>
           </div>
-          <p class="mt-3 text-[12px] text-white/40">Línea de pobreza: $1.200 por persona al año (≈ $3,3 al día). Población: 1 M (50% baja · 40% media · 10% alta).</p>
         </section>
 
         <section aria-labelledby="explainer-title" aria-live="polite" class="glass p-6">
@@ -344,9 +369,6 @@
           <div id="explainer" class="flex flex-col gap-4"></div>
         </section>
 
-        <footer class="md:col-span-2 lg:col-span-1 px-2 pb-4 text-[11px] text-white/35 leading-relaxed">
-          Modelo didáctico simplificado. El reparto de la riqueza sigue una distribución log-normal calibrada con el índice de Gini; dentro de cada clase los ingresos varían de forma uniforme alrededor de su media. La pobreza absoluta mide la proporción de personas por debajo de una línea de ingreso fija, independiente de lo que ganen los demás.
-        </footer>
       </div>
     </aside>
   </div>
@@ -933,11 +955,11 @@
 
     /* ---------- Districts (dynamic) ---------- */
     const DISTRICTS = [
-      { name: 'Distrito Bajo', cls: 0, cx: -30, th: [0.9, 1.6, 2.5, 4], build: buildLower, dot: 'bg-amber-400', text: 'text-amber-300',
+      { name: 'Distrito Bajo', cls: 0, cx: -30, th: [0.9, 1.6, 2.5, 4], build: buildLower, tone: 'district-tone-low',
         trees: [0, 0.04, 0.25, 0.6, 0.85], lights: [0, 0.12, 0.55, 0.9, 1], cars: [0.03, 0.1, 0.35, 0.6, 0.8], paved: [false, false, true, true, true], glow: [0, 0.1, 0.45, 0.8, 1] },
-      { name: 'Distrito Medio', cls: 1, cx: 0, th: [2, 4, 8], build: buildMiddle, dot: 'bg-sky-400', text: 'text-sky-300',
+      { name: 'Distrito Medio', cls: 1, cx: 0, th: [2, 4, 8], build: buildMiddle, tone: 'district-tone-mid',
         trees: [0.12, 0.35, 0.7, 1], lights: [0.5, 0.8, 1, 1], cars: [0.3, 0.5, 0.75, 1], paved: [true, true, true, true], glow: [0.35, 0.6, 0.85, 1] },
-      { name: 'Distrito Alto', cls: 2, cx: 30, th: [6, 15, 40], build: buildUpper, dot: 'bg-violet-400', text: 'text-violet-300',
+      { name: 'Distrito Alto', cls: 2, cx: 30, th: [6, 15, 40], build: buildUpper, tone: 'district-tone-high',
         trees: [0.6, 0.5, 0.6, 0.8], lights: [0.6, 1, 1, 1], cars: [0.3, 0.5, 0.8, 1], paved: [true, true, true, true], glow: [0.6, 0.8, 1, 1] },
     ];
     const DIRT_COLOR = new THREE.Color(0x5e4630);
@@ -1126,7 +1148,7 @@
       scene.remove(group);
     }
 
-    const env = { cityP: 0.5, targetCityP: 0.5, night: 0, targetNight: 0, speed: 1 };
+    const env = { cityP: 0.5, targetCityP: 0.5, night: 1, targetNight: 1, speed: 1 };
 
     function applyCity(sim) {
       env.targetCityP = clamp((Math.log10(sim.mean / BASE_PER_CAPITA) + 0.6) / 1.6, 0, 1);
@@ -1211,11 +1233,11 @@
       const el = document.createElement('div');
       el.className = 'district-label';
       el.innerHTML = `
-        <div class="flex items-center gap-2 rounded-lg bg-slate-950/75 backdrop-blur ring-1 ring-white/15 px-2.5 py-1.5 shadow-lg">
-          <span class="h-2.5 w-2.5 rounded-full ${def.dot}"></span>
+        <div class="district-label-card ${def.tone} flex items-center gap-2 rounded-lg bg-slate-950/75 backdrop-blur ring-1 ring-white/15 px-2.5 py-1.5 shadow-lg">
+          <span class="h-2.5 w-2.5 rounded-full"></span>
           <div class="leading-tight">
             <p class="text-[11px] font-semibold text-white">${def.name}</p>
-            <p class="text-[10px] font-mono ${def.text}" data-role="value">—</p>
+            <p class="text-[10px] font-mono" data-role="value">—</p>
           </div>
         </div>`;
       labelsRoot.appendChild(el);
@@ -1323,8 +1345,8 @@
         datasets: [{
           label: 'Ingreso anual por persona',
           data: [0, 0, 0],
-          backgroundColor: ['rgba(251,191,36,0.85)', 'rgba(56,189,248,0.85)', 'rgba(167,139,250,0.85)'],
-          borderColor: ['#fbbf24', '#38bdf8', '#a78bfa'],
+          backgroundColor: ['#EEE9DA', '#BDCDD6', '#6096B4'],
+          borderColor: ['#EEE9DA', '#BDCDD6', '#6096B4'],
           borderWidth: 1.5,
           borderRadius: 8,
           maxBarThickness: 64,
@@ -1439,55 +1461,35 @@
         body = `Un crecimiento del ${gTxt} anual ha multiplicado la riqueza por ${num(sim.factor, 1)} en ${sim.t} años. La pobreza absoluta ha bajado del ${pct(start.poverty)} inicial al ${pct(pov)}, aunque la clase alta gane ${num(gap, 1)} veces más que la baja. ${Number.isFinite(yrs) ? `A este ritmo, la pobreza desaparecerá por completo en el año ${yrs}.` : ''}`;
       }
 
-      const bench = simulate(BENCHMARK.g, BENCHMARK.gini, sim.t);
-      const diff = yL / bench.incomes[0] - 1;
-      const better = diff > 0.005;
-      const lesson = sim.t === 0
-        ? 'En el año 0 el crecimiento todavía no ha actuado: solo importa el reparto. Su efecto es acumulativo y crece exponencialmente con el tiempo.'
-        : `En una ciudad igualitaria de bajo crecimiento (+1% anual, Gini 0,25), tras ${sim.t} años la clase baja ingresaría ${money(bench.incomes[0])} y la pobreza sería del ${pct(bench.poverty)}. En tu ciudad, la clase baja ingresa ${money(yL)} (${signedPct(diff, 0)}). ${better
-          ? (sim.gini > BENCHMARK.gini + 0.05 ? 'Pese a ser más desigual, tu escenario es mejor para los más pobres: una porción menor de un pastel mucho más grande.' : 'Tu escenario es mejor para los más pobres.')
-          : 'El escenario de referencia es mejor para los más pobres: sin suficiente crecimiento, un reparto más desigual sí empeora su situación.'}`;
-
       const t = TONES[tone];
-      const d = districtState;
       return `
         <div class="fade-in rounded-2xl ${t.bg} ring-1 ${t.ring} p-4">
           <p class="flex items-center gap-2 text-base font-bold ${t.text}"><i data-lucide="${icon}" class="w-5 h-5"></i>${title}</p>
           <p class="mt-2 text-sm text-slate-200 leading-relaxed text-pretty">${body}</p>
-        </div>
-        <ul class="flex flex-col gap-2">
-          ${[
-            [DISTRICTS[0], LOWER_DESC[d[0].tier], yL],
-            [DISTRICTS[1], MIDDLE_DESC[d[1].tier], yM],
-            [DISTRICTS[2], UPPER_DESC[d[2].tier], yA],
-          ].map(([def, desc, y]) => `
-            <li class="flex gap-3 rounded-xl bg-slate-800/50 ring-1 ring-white/5 p-3">
-              <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${def.dot}"></span>
-              <div>
-                <p class="text-xs font-semibold text-white">${def.name} <span class="font-mono font-medium ${def.text}">· ${money(y)}/año</span></p>
-                <p class="text-xs text-slate-400 leading-relaxed">${desc}</p>
-              </div>
-            </li>`).join('')}
-        </ul>
-        <div class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4">
-          <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${better || sim.t === 0 ? 'text-emerald-300' : 'text-amber-300'}">
-            <i data-lucide="lightbulb" class="w-4 h-4"></i>Lección clave
-          </p>
-          <p class="mt-2 text-sm text-slate-300 leading-relaxed text-pretty">${lesson}</p>
         </div>`;
     }
 
     let lastExplainKey = '';
+    function updateRangeFill(input) {
+      const min = Number(input.min);
+      const max = Number(input.max);
+      const value = Number(input.value);
+      const fill = ((value - min) / (max - min)) * 100;
+      input.style.setProperty('--fill', `${Math.max(0, Math.min(100, fill))}%`);
+    }
+
     function refresh() {
       state.g = parseFloat(growthInput.value) / 100;
       state.gini = parseFloat(giniInput.value);
       state.t = parseInt(yearsInput.value, 10);
+      [growthInput, giniInput, yearsInput].forEach(updateRangeFill);
       const sim = simulate(state.g, state.gini, state.t);
       const [yL, yM, yA] = sim.incomes;
 
       $('growth-out').textContent = signedPct(state.g, 1);
       $('growth-out').className = `font-mono text-sm font-bold ${state.g < 0 ? 'text-rose-300' : state.g < 0.025 ? 'text-amber-300' : 'text-emerald-300'}`;
       $('gini-out').textContent = num(state.gini, 2);
+      $('gini-out').className = `font-mono text-sm font-bold ${state.gini >= 0.5 ? 't-bad' : state.gini >= 0.35 ? 't-warn' : 't-good'}`;
       $('years-out').textContent = `${state.t} ${state.t === 1 ? 'año' : 'años'}`;
 
       $('hud-year').textContent = String(state.t);
@@ -1505,13 +1507,19 @@
       $('m-poverty-sub').textContent = sim.poverty < 0.0005 ? 'Erradicada' : `${num(sim.poverty * POPULATION)} personas`;
 
       const ratioTxt = (y) => `${num(y / POVERTY_LINE, 1)}× línea`;
+      const incomeTone = (y) => {
+        const ratio = y / POVERTY_LINE;
+        return ratio >= 1 ? 'text-emerald-300' : ratio >= 0.5 ? 'text-amber-300' : 'text-rose-300';
+      };
       $('m-low').textContent = moneyShort(yL);
       $('m-low-sub').textContent = ratioTxt(yL);
       $('m-low-sub').className = `text-[10px] ${GROUPS[0].spread[0] * yL >= POVERTY_LINE ? 'text-emerald-300' : 'text-rose-300'}`;
       $('m-mid').textContent = moneyShort(yM);
       $('m-mid-sub').textContent = ratioTxt(yM);
+      $('m-mid-sub').className = `ml-2 text-[12px] ${incomeTone(yM)}`;
       $('m-high').textContent = moneyShort(yA);
       $('m-high-sub').textContent = ratioTxt(yA);
+      $('m-high-sub').className = `ml-2 text-[12px] ${incomeTone(yA)}`;
       $('m-ratio').textContent = `${num(yA / yL, 1)}×`;
 
       const yrs = yearsToEradicate(state.g, state.gini);
