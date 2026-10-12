@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1120" />
+  <title>Ciudad Prosperidad · Simulador 3D de Crecimiento vs. Desigualdad</title>
+  <meta name="description" content="Simulador económico interactivo en 3D: compara cómo el crecimiento económico y la desigualdad afectan a la pobreza absoluta de una ciudad." />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    html, body { background: #0b1120; }
+    body { -webkit-font-smoothing: antialiased; }
+
+    .range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 9999px;
+      background: var(--track, #334155);
+      outline: none;
+      cursor: pointer;
+    }
+    .range:focus-visible { box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.45); }
+    .range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      background: #f8fafc;
+      border: 4px solid #0b1120;
+      box-shadow: 0 0 0 2px #f8fafc, 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: transform 0.15s ease;
+    }
+    .range::-webkit-slider-thumb:hover { transform: scale(1.12); }
+    .range::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 9999px;
+      background: #f8fafc;
+      border: 4px solid #0b1120;
+      box-shadow: 0 0 0 2px #f8fafc;
+    }
+
+    .panel-scroll::-webkit-scrollbar { width: 8px; }
+    .panel-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+    .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+
+    .district-label {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -100%);
+      pointer-events: none;
+      white-space: nowrap;
+      will-change: transform;
+    }
+
+    .fade-in { animation: fadeIn 0.35s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in { animation: none; }
+    }
+  </style>
+</head>
+
+<body class="font-sans text-slate-200 lg:h-screen lg:overflow-hidden">
+  <div class="flex flex-col lg:flex-row lg:h-screen">
+
+    <!-- ================= 3D AREA ================= -->
+    <main class="relative flex-1 h-[58vh] lg:h-screen min-h-[380px] overflow-hidden bg-slate-950" aria-label="Visor 3D de la ciudad">
+      <div id="scene" class="absolute inset-0"></div>
+      <div id="labels" class="absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+
+      <!-- Top overlay -->
+      <header class="absolute top-0 inset-x-0 p-3 sm:p-4 flex items-start justify-between gap-3 pointer-events-none">
+        <div class="pointer-events-auto rounded-2xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 px-4 py-3 max-w-md">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Ciudad Prosperidad</p>
+          <p class="mt-0.5 text-sm sm:text-base font-semibold text-white leading-snug">
+            Año <span id="hud-year" class="font-mono">25</span> · PIB <span id="hud-gdp" class="font-mono">—</span>
+          </p>
+          <p class="text-xs text-slate-400">
+            Pobreza absoluta: <span id="hud-poverty" class="font-mono font-semibold text-rose-300">—</span>
+          </p>
+        </div>
+
+        <div class="pointer-events-auto flex gap-2" role="toolbar" aria-label="Controles de la vista">
+          <button id="btn-night" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Cambiar a vista nocturna" aria-pressed="false">
+            <i data-lucide="moon" class="w-5 h-5"></i>
+          </button>
+          <button id="btn-rotate" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Activar rotación automática" aria-pressed="false">
+            <i data-lucide="rotate-3d" class="w-5 h-5"></i>
+          </button>
+          <button id="btn-reset" type="button" class="h-10 w-10 grid place-items-center rounded-xl bg-slate-950/70 backdrop-blur-md ring-1 ring-white/10 text-slate-200 hover:bg-slate-800 transition" aria-label="Restablecer cámara">
+            <i data-lucide="scan" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </header>
+
+      <p class="absolute bottom-3 left-3 sm:left-4 text-[11px] text-slate-300/80 bg-slate-950/60 backdrop-blur rounded-lg px-2.5 py-1.5 ring-1 ring-white/10 pointer-events-none">
+        <span class="hidden sm:inline">Arrastra para rotar · Rueda para zoom · Clic derecho para desplazar</span>
+        <span class="sm:hidden">Arrastra para rotar · Pellizca para zoom</span>
+      </p>
+
+      <div id="loading" class="absolute inset-0 grid place-items-center bg-slate-950 text-slate-400 text-sm transition-opacity duration-500">
+        <div class="flex items-center gap-3">
+          <span class="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></span>
+          Construyendo la ciudad…
+        </div>
+      </div>
+    </main>
+
+    <!-- ================= DASHBOARD ================= -->
+    <aside class="panel-scroll w-full lg:w-[440px] xl:w-[480px] lg:h-screen lg:overflow-y-auto bg-slate-900 border-t lg:border-t-0 lg:border-l border-white/10" aria-label="Panel de control y métricas">
+      <div class="p-5 sm:p-6 flex flex-col gap-6">
+
+        <!-- Intro -->
+        <section>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Simulador económico interactivo</p>
+          <h1 class="mt-1 text-2xl font-extrabold text-white text-balance leading-tight">Crecimiento vs. Desigualdad</h1>
+          <blockquote class="mt-3 border-l-2 border-emerald-400 pl-3 text-sm text-slate-300 leading-relaxed text-pretty">
+            La desigualdad no es el problema en sí: el verdadero enemigo es la <strong class="text-white">pobreza absoluta</strong>. Un pastel que crece rápido, aunque se reparta de forma desigual, puede dar a los más pobres una porción mayor que un pastel pequeño repartido a partes iguales.
+          </blockquote>
+        </section>
+
+        <!-- Presets -->
+        <section aria-labelledby="presets-title">
+          <h2 id="presets-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Escenarios rápidos</h2>
+          <div class="grid grid-cols-2 gap-2" id="presets">
+            <button type="button" data-g="0.5" data-gini="0.22" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
+              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="scale" class="w-4 h-4 text-amber-400"></i>Igualdad en la miseria</span>
+              <span class="block text-[11px] text-slate-400 mt-0.5">+0,5% · Gini 0,22</span>
+            </button>
+            <button type="button" data-g="9" data-gini="0.62" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
+              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="rocket" class="w-4 h-4 text-emerald-400"></i>Crecimiento desigual</span>
+              <span class="block text-[11px] text-slate-400 mt-0.5">+9% · Gini 0,62</span>
+            </button>
+            <button type="button" data-g="-2" data-gini="0.55" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
+              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="trending-down" class="w-4 h-4 text-rose-400"></i>Estancamiento</span>
+              <span class="block text-[11px] text-slate-400 mt-0.5">−2% · Gini 0,55</span>
+            </button>
+            <button type="button" data-g="7" data-gini="0.32" data-t="25" class="preset text-left rounded-xl bg-slate-800/70 hover:bg-slate-800 ring-1 ring-white/10 px-3 py-2.5 transition">
+              <span class="flex items-center gap-1.5 text-sm font-semibold text-white"><i data-lucide="sprout" class="w-4 h-4 text-sky-400"></i>Crecimiento inclusivo</span>
+              <span class="block text-[11px] text-slate-400 mt-0.5">+7% · Gini 0,32</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Controls -->
+        <section aria-labelledby="controls-title" class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4 flex flex-col gap-5">
+          <h2 id="controls-title" class="sr-only">Parámetros de la simulación</h2>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="growth" class="flex items-center gap-2 text-sm font-semibold text-white">
+                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>Crecimiento económico anual
+              </label>
+              <output id="growth-out" for="growth" class="font-mono text-sm font-bold text-emerald-300">+9,0%</output>
+            </div>
+            <input id="growth" class="range" type="range" min="-5" max="15" step="0.5" value="9" style="--track: linear-gradient(90deg,#f43f5e 0%,#f59e0b 25%,#334155 25%,#10b981 100%)" />
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono"><span>−5%</span><span>0%</span><span>+15%</span></div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="gini" class="flex items-center gap-2 text-sm font-semibold text-white">
+                <i data-lucide="split" class="w-4 h-4 text-violet-400"></i>Desigualdad (índice de Gini)
+              </label>
+              <output id="gini-out" for="gini" class="font-mono text-sm font-bold text-violet-300">0,62</output>
+            </div>
+            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--track: linear-gradient(90deg,#38bdf8,#a78bfa,#e879f9)" />
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0,20 · Baja</span><span>0,70 · Alta</span></div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="years" class="flex items-center gap-2 text-sm font-semibold text-white">
+                <i data-lucide="calendar-clock" class="w-4 h-4 text-sky-400"></i>Tiempo transcurrido
+              </label>
+              <div class="flex items-center gap-2">
+                <output id="years-out" for="years" class="font-mono text-sm font-bold text-sky-300">25 años</output>
+                <button id="btn-play" type="button" class="h-8 w-8 grid place-items-center rounded-lg bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/30 hover:bg-sky-500/25 transition" aria-label="Reproducir la evolución año a año">
+                  <i data-lucide="play" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+            <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--track: linear-gradient(90deg,#0ea5e9,#334155)" />
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono"><span>0</span><span>20</span><span>40 años</span></div>
+          </div>
+
+          <p class="text-[11px] text-slate-400 leading-relaxed rounded-lg bg-slate-900 ring-1 ring-white/5 px-3 py-2 font-mono">
+            Riqueza = $2.400 M × (1 + <span class="text-emerald-300">g</span>)<sup><span class="text-sky-300">t</span></sup>
+            <span class="block font-sans text-slate-500 mt-1">El Gini decide cómo se reparte esa riqueza entre las tres clases.</span>
+          </p>
+        </section>
+
+        <!-- Metrics -->
+        <section aria-labelledby="metrics-title">
+          <h2 id="metrics-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Métricas en tiempo real</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="landmark" class="w-3.5 h-3.5"></i>PIB total de la ciudad</p>
+              <p id="m-gdp" class="mt-1 font-mono text-lg font-bold text-white">—</p>
+              <p id="m-gdp-sub" class="text-[11px] text-emerald-300">—</p>
+            </div>
+            <div id="m-poverty-card" class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="home" class="w-3.5 h-3.5"></i>Pobreza absoluta</p>
+              <p id="m-poverty" class="mt-1 font-mono text-lg font-bold text-rose-300">—</p>
+              <div class="mt-1.5 h-1.5 rounded-full bg-slate-700 overflow-hidden" aria-hidden="true">
+                <div id="m-poverty-bar" class="h-full rounded-full bg-rose-400 transition-all duration-300" style="width:0%"></div>
+              </div>
+              <p id="m-poverty-sub" class="mt-1 text-[11px] text-slate-400">—</p>
+            </div>
+
+            <div class="col-span-2 grid grid-cols-3 gap-2">
+              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Clase baja</p>
+                <p id="m-low" class="mt-1 font-mono text-sm sm:text-base font-bold text-amber-300">—</p>
+                <p id="m-low-sub" class="text-[10px] text-slate-400">—</p>
+              </div>
+              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-sky-400"></span>Clase media</p>
+                <p id="m-mid" class="mt-1 font-mono text-sm sm:text-base font-bold text-sky-300">—</p>
+                <p id="m-mid-sub" class="text-[10px] text-slate-400">—</p>
+              </div>
+              <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+                <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span class="h-2 w-2 rounded-full bg-violet-400"></span>Clase alta</p>
+                <p id="m-high" class="mt-1 font-mono text-sm sm:text-base font-bold text-violet-300">—</p>
+                <p id="m-high-sub" class="text-[10px] text-slate-400">—</p>
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="git-compare" class="w-3.5 h-3.5"></i>Brecha alta / baja</p>
+              <p id="m-ratio" class="mt-1 font-mono text-lg font-bold text-white">—</p>
+              <p class="text-[11px] text-slate-400">veces más ingreso</p>
+            </div>
+            <div class="rounded-xl bg-slate-800/60 ring-1 ring-white/10 p-3">
+              <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><i data-lucide="hourglass" class="w-3.5 h-3.5"></i>Fin de la pobreza</p>
+              <p id="m-years" class="mt-1 font-mono text-lg font-bold text-white">—</p>
+              <p id="m-years-sub" class="text-[11px] text-slate-400">con este ritmo</p>
+            </div>
+          </div>
+          <p class="mt-2 text-[11px] text-slate-500">Ingresos por persona y año. Población: 1.000.000 habitantes (50% baja · 40% media · 10% alta).</p>
+        </section>
+
+        <!-- Chart -->
+        <section aria-labelledby="chart-title" class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4">
+          <div class="flex items-center justify-between mb-3 gap-2">
+            <h2 id="chart-title" class="text-sm font-semibold text-white flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-4 h-4 text-slate-400"></i>Ingreso absoluto vs. línea de pobreza</h2>
+            <div class="flex rounded-lg bg-slate-800 p-0.5 text-[11px] font-semibold" role="group" aria-label="Escala del gráfico">
+              <button id="scale-log" type="button" class="px-2 py-1 rounded-md bg-slate-600 text-white" aria-pressed="true">Log</button>
+              <button id="scale-lin" type="button" class="px-2 py-1 rounded-md text-slate-400" aria-pressed="false">Lineal</button>
+            </div>
+          </div>
+          <div class="relative h-56">
+            <canvas id="chart" aria-label="Gráfico de barras de ingresos por clase social con la línea de pobreza" role="img"></canvas>
+          </div>
+          <p class="mt-2 text-[11px] text-slate-500">Línea de pobreza: $1.200 por persona al año (≈ $3,3 al día).</p>
+        </section>
+
+        <!-- Explainer -->
+        <section aria-labelledby="explainer-title" aria-live="polite">
+          <h2 id="explainer-title" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">¿Qué está pasando en la ciudad?</h2>
+          <div id="explainer" class="flex flex-col gap-3"></div>
+        </section>
+
+        <footer class="text-[11px] text-slate-500 leading-relaxed border-t border-white/10 pt-4 pb-2">
+          Modelo didáctico simplificado. El reparto de la riqueza sigue una distribución log-normal calibrada con el índice de Gini; dentro de cada clase los ingresos varían de forma uniforme alrededor de su media. La pobreza absoluta mide la proporción de personas por debajo de una línea de ingreso fija, independiente de lo que ganen los demás.
+        </footer>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    /* =====================================================================
+       1. ECONOMIC MODEL
+       ===================================================================== */
+    const POPULATION = 1_000_000;
+    const BASE_PER_CAPITA = 2400;
+    const BASE_GDP = POPULATION * BASE_PER_CAPITA;
+    const POVERTY_LINE = 1200;
+    const GROUPS = [
+      { name: 'Clase baja', pop: 0.5, spread: [0.4, 1.6] },
+      { name: 'Clase media', pop: 0.4, spread: [0.6, 1.4] },
+      { name: 'Clase alta', pop: 0.1, spread: [0.7, 1.3] },
+    ];
+    const BENCHMARK = { g: 0.01, gini: 0.25 };
+
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    function erf(x) {
+      const sign = Math.sign(x);
+      const ax = Math.abs(x);
+      const t = 1 / (1 + 0.3275911 * ax);
+      const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-ax * ax);
+      return sign * y;
+    }
+    const normCdf = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
+
+    function normInv(p) {
+      const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
+      const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+      const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+      const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+      const pLow = 0.02425;
+      if (p < pLow) {
+        const q = Math.sqrt(-2 * Math.log(p));
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+      }
+      if (p <= 1 - pLow) {
+        const q = p - 0.5;
+        const r = q * q;
+        return ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+      }
+      const q = Math.sqrt(-2 * Math.log(1 - p));
+      return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    const Z90 = normInv(0.9);
+
+    function simulate(g, gini, t) {
+      const factor = Math.pow(1 + g, t);
+      const gdp = BASE_GDP * factor;
+      const mean = gdp / POPULATION;
+      const sigma = Math.SQRT2 * normInv((gini + 1) / 2);
+      const lorenz50 = normCdf(-sigma);
+      const lorenz90 = normCdf(Z90 - sigma);
+      const shares = [lorenz50, lorenz90 - lorenz50, 1 - lorenz90];
+      const incomes = shares.map((s, i) => (mean * s) / GROUPS[i].pop);
+      const fractions = incomes.map((y, i) => {
+        const [lo, hi] = GROUPS[i].spread;
+        return clamp((POVERTY_LINE - lo * y) / ((hi - lo) * y), 0, 1);
+      });
+      const poverty = fractions.reduce((acc, f, i) => acc + f * GROUPS[i].pop, 0);
+      return { g, gini, t, factor, gdp, mean, shares, incomes, fractions, poverty };
+    }
+
+    function yearsToEradicate(g, gini) {
+      const start = simulate(g, gini, 0);
+      if (start.poverty <= 0) return 0;
+      if (g <= 0) return Infinity;
+      let needed = 0;
+      start.incomes.forEach((y, i) => {
+        const target = POVERTY_LINE / GROUPS[i].spread[0];
+        if (y < target) needed = Math.max(needed, Math.log(target / y) / Math.log(1 + g));
+      });
+      return Math.ceil(needed - 1e-9);
+    }
+
+    /* =====================================================================
+       2. FORMATTING
+       ===================================================================== */
+    const group3 = (s) => s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    function num(v, decimals = 0) {
+      const fixed = Math.abs(v).toFixed(decimals);
+      const [int, dec] = fixed.split('.');
+      return (v < 0 ? '−' : '') + group3(int) + (dec ? ',' + dec : '');
+    }
+    const money = (v) => '$' + num(v);
+    function moneyShort(v) {
+      if (v >= 1e6) return '$' + num(v / 1e6, v >= 1e7 ? 0 : 1) + ' M';
+      if (v >= 1e4) return '$' + num(v / 1e3, 0) + ' mil';
+      return '$' + num(v);
+    }
+    function moneyBig(v) {
+      if (v >= 1e12) return '$' + num(v / 1e12, 2) + ' billones';
+      if (v >= 1e9) return '$' + num(v / 1e9, 2) + ' mil M';
+      return '$' + num(v / 1e6, 0) + ' M';
+    }
+    const pct = (v, d = 1) => num(v * 100, d) + '%';
+    const signedPct = (v, d = 1) => (v > 0 ? '+' : '') + num(v * 100, d) + '%';
+
+    /* =====================================================================
+       3. THREE.JS SCENE
+       ===================================================================== */
+    const container = document.getElementById('scene');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x8ec5ef, 80, 220);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.5;
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 600);
+    const CAMERA_HOME = new THREE.Vector3(-6, 54, 82);
+    camera.position.copy(CAMERA_HOME);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.target.set(0, 2, 0);
+    controls.minDistance = 14;
+    controls.maxDistance = 170;
+    controls.maxPolarAngle = Math.PI * 0.47;
+    controls.autoRotateSpeed = 0.6;
+
+    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x4b5a3a, 0.9);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
+    sun.position.set(45, 70, 30);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -70;
+    sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 55;
+    sun.shadow.camera.bottom = -55;
+    sun.shadow.camera.near = 10;
+    sun.shadow.camera.far = 200;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.04;
+    scene.add(sun);
+    const moon = new THREE.DirectionalLight(0x8fa8ff, 0);
+    moon.position.set(-40, 60, -20);
+    scene.add(moon);
+
+    /* ---------- Shared materials & textures ---------- */
+    const std = (color, roughness = 0.85, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    const M = {
+      ground: std(0x5a7a3e, 1),
+      asphalt: std(0x2b2f36, 0.9),
+      marking: std(0xe8d48a, 0.6),
+      dirtLot: std(0x6e5236, 1),
+      concreteLot: std(0x8a8e93, 0.95),
+      paverLot: std(0xb0aaa0, 0.9),
+      grassLot: std(0x5c9447, 1),
+      darkGrass: std(0x3f7a36, 1),
+      water: std(0x38a9dc, 0.08, 0.1),
+      shackWalls: [0x6e5a48, 0x7a6a5a, 0x5d4f43, 0x8a7258, 0x5b5f63, 0x6b4f3a].map((c) => std(c, 1)),
+      shackRoofs: [0x8c5a3a, 0x7d7f82, 0x6a4a35, 0x93633f, 0x5f6b72].map((c) => std(c, 0.65, 0.45)),
+      brick: [0x9c5a3c, 0xa8633f, 0x8e4f35, 0xb06d47].map((c) => std(c, 0.95)),
+      blockGray: std(0x8d8d88, 0.95),
+      slab: std(0x5a5c5f, 0.9),
+      rebar: std(0x3a3a3a, 0.5, 0.7),
+      barrel: [0x2563eb, 0x0f766e, 0x9a3412].map((c) => std(c, 0.6)),
+      pastel: [0xf2d0a4, 0xbfe0d6, 0xf6e7b4, 0xd7c8ec, 0xf3b8a8, 0xcfe3f6].map((c) => std(c, 0.8)),
+      roofTile: [0xb5543c, 0x8a4a3a, 0x5c6670, 0x9b5e3c].map((c) => std(c, 0.8)),
+      white: std(0xeef0f2, 0.55),
+      wood: std(0x9b6b43, 0.7),
+      door: std(0x3b3026, 0.8),
+      winDark: std(0x2d3d4f, 0.3, 0.3),
+      solar: std(0x1e3a6e, 0.25, 0.7),
+      hedge: std(0x2f6a2c, 1),
+      roof: std(0x4a4d52, 0.85),
+      roofLight: std(0x9ea3a8, 0.7),
+      spire: std(0xdde3ea, 0.25, 0.9),
+      trunk: std(0x6b4a2f, 1),
+      crown: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true }),
+      pole: std(0x3c4148, 0.6, 0.6),
+      lampHead: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffcf86, emissiveIntensity: 0.3 }),
+      car: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.4 }),
+    };
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const pick = (rng, arr) => arr[Math.floor(rng() * arr.length) % arr.length];
+
+    const FLOOR_H = 0.35;
+    const TEX_W = 4.0;
+    const TEX_H = FLOOR_H * 8;
+
+    function makeFacade({ wall, glass, lit, litColors, mullion, glassStyle = false, seed = 1, roughness = 0.8, metalness = 0 }) {
+      const size = 256;
+      const cell = size / 8;
+      const map = document.createElement('canvas');
+      const emi = document.createElement('canvas');
+      map.width = map.height = emi.width = emi.height = size;
+      const mc = map.getContext('2d');
+      const ec = emi.getContext('2d');
+      const rng = mulberry32(seed);
+      mc.fillStyle = wall;
+      mc.fillRect(0, 0, size, size);
+      ec.fillStyle = '#000';
+      ec.fillRect(0, 0, size, size);
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const x = c * cell;
+          const y = r * cell;
+          const [wx, wy, ww, wh] = glassStyle ? [x + 2, y + 2, cell - 4, cell - 6] : [x + 7, y + 8, cell - 14, cell - 14];
+          const g = mc.createLinearGradient(wx, wy, wx + ww, wy + wh);
+          const shade = 0.85 + rng() * 0.3;
+          g.addColorStop(0, shadeHex(glass, shade + 0.15));
+          g.addColorStop(1, shadeHex(glass, shade - 0.1));
+          mc.fillStyle = g;
+          mc.fillRect(wx, wy, ww, wh);
+          if (mullion) {
+            mc.fillStyle = mullion;
+            mc.fillRect(wx + ww / 2 - 1, wy, 2, wh);
+          }
+          if (rng() < lit) {
+            ec.fillStyle = pick(rng, litColors);
+            ec.globalAlpha = 0.65 + rng() * 0.35;
+            ec.fillRect(wx, wy, ww, wh);
+            ec.globalAlpha = 1;
+          }
+        }
+      }
+      const mapTex = new THREE.CanvasTexture(map);
+      mapTex.colorSpace = THREE.SRGBColorSpace;
+      const emiTex = new THREE.CanvasTexture(emi);
+      emiTex.colorSpace = THREE.SRGBColorSpace;
+      for (const t of [mapTex, emiTex]) {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.anisotropy = 4;
+      }
+      const wallMat = new THREE.MeshStandardMaterial({
+        map: mapTex, emissiveMap: emiTex, emissive: 0xffffff, emissiveIntensity: 0, roughness, metalness,
+      });
+      return { wall: wallMat, mats: [wallMat, wallMat, M.roof, M.roof, wallMat, wallMat], cyl: [wallMat, M.roof, M.roof] };
+    }
+    function shadeHex(hex, f) {
+      const n = parseInt(hex.slice(1), 16);
+      const r = clamp(Math.round(((n >> 16) & 255) * f), 0, 255);
+      const g = clamp(Math.round(((n >> 8) & 255) * f), 0, 255);
+      const b = clamp(Math.round((n & 255) * f), 0, 255);
+      return `rgb(${r},${g},${b})`;
+    }
+    const WARM = ['#ffd58a', '#ffe2a8', '#ffc56e'];
+    const COOL = ['#e6f0ff', '#cfe3ff', '#fff6e0'];
+    const F = {
+      concrete: makeFacade({ wall: '#9a968e', glass: '#3b4652', lit: 0.35, litColors: WARM, seed: 3 }),
+      cream: makeFacade({ wall: '#d8c7a8', glass: '#46596b', lit: 0.4, litColors: WARM, mullion: '#d8c7a8', seed: 5 }),
+      lowModern: makeFacade({ wall: '#f1efe9', glass: '#5f84a6', lit: 0.45, litColors: WARM, seed: 7, roughness: 0.6 }),
+      modern: makeFacade({ wall: '#e9e6df', glass: '#4f7799', lit: 0.45, litColors: COOL, mullion: '#e9e6df', seed: 9, roughness: 0.6 }),
+      glassBlue: makeFacade({ wall: '#27313d', glass: '#5b93c7', lit: 0.32, litColors: COOL, glassStyle: true, seed: 11, roughness: 0.18, metalness: 0.55 }),
+      glassTeal: makeFacade({ wall: '#25323a', glass: '#4fa3a5', lit: 0.32, litColors: COOL, glassStyle: true, seed: 13, roughness: 0.18, metalness: 0.5 }),
+      glassDark: makeFacade({ wall: '#1b2330', glass: '#3a5a86', lit: 0.35, litColors: COOL, glassStyle: true, seed: 17, roughness: 0.15, metalness: 0.6 }),
+    };
+    const FACADE_LIST = Object.values(F);
+
+    /* ---------- Shared geometry ---------- */
+    const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+    const pyramidGeo = new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4).translate(0, 0.5, 0);
+    const trunkGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.45, 6).translate(0, 0.225, 0);
+    const crownGeo = new THREE.IcosahedronGeometry(0.34, 0).translate(0, 0.65, 0);
+    const barrelGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.2, 8).translate(0, 0.1, 0);
+    const spireGeo = new THREE.ConeGeometry(0.18, 1, 8).translate(0, 0.5, 0);
+    const fountainGeo = new THREE.CylinderGeometry(0.5, 0.55, 0.12, 20).translate(0, 0.06, 0);
+
+    function facadeBox(w, h, d) {
+      const g = new THREE.BoxGeometry(w, h, d);
+      const uv = g.attributes.uv;
+      const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let f = 0; f < 6; f++) {
+        for (let i = 0; i < 4; i++) {
+          const idx = f * 4 + i;
+          uv.setXY(idx, (uv.getX(idx) * dims[f][0]) / TEX_W, (uv.getY(idx) * dims[f][1]) / TEX_H);
+        }
+      }
+      g.translate(0, h / 2, 0);
+      return g;
+    }
+    function facadeCylinder(r, h) {
+      const seg = 24;
+      const g = new THREE.CylinderGeometry(r, r, h, seg, 1);
+      const uv = g.attributes.uv;
+      const sideCount = (seg + 1) * 2;
+      for (let i = 0; i < sideCount; i++) {
+        uv.setXY(i, (uv.getX(i) * 2 * Math.PI * r) / TEX_W, (uv.getY(i) * h) / TEX_H);
+      }
+      g.translate(0, h / 2, 0);
+      return g;
+    }
+
+    /* ---------- Builder helpers ---------- */
+    function addBox(group, mat, x, y, z, w, h, d, ry = 0) {
+      const m = new THREE.Mesh(unitBox, mat);
+      m.scale.set(w, h, d);
+      m.position.set(x, y, z);
+      m.rotation.y = ry;
+      group.add(m);
+      return m;
+    }
+    function addShared(group, geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, ry = 0) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      m.scale.set(sx, sy, sz);
+      m.rotation.y = ry;
+      group.add(m);
+      return m;
+    }
+    function addBuilding(group, facade, x, z, w, h, d, y = 0, ry = 0) {
+      const m = new THREE.Mesh(facadeBox(w, h, d), facade.mats);
+      m.userData.ownGeometry = true;
+      m.position.set(x, y, z);
+      m.rotation.y = ry;
+      group.add(m);
+      return m;
+    }
+    function addTower(group, facade, x, z, r, h) {
+      const m = new THREE.Mesh(facadeCylinder(r, h), facade.cyl);
+      m.userData.ownGeometry = true;
+      m.position.set(x, 0, z);
+      group.add(m);
+      return m;
+    }
+    const treeColors = [0x4f8a3c, 0x3f7a33, 0x5e9a44, 0x6aa24b, 0x467f37];
+    function addTree(group, x, z, s = 1, rng = Math.random) {
+      addShared(group, trunkGeo, M.trunk, x, 0.06, z, s, s, s);
+      const c = M.crown.clone();
+      c.color.setHex(pick(rng, treeColors));
+      const crown = addShared(group, crownGeo, c, x, 0.06, z, s, s, s, rng() * Math.PI);
+      crown.userData.ownMaterial = true;
+    }
+    function addPark(group, x, z, rng) {
+      addBox(group, M.grassLot, x, 0, z, 3.8, 0.07, 3.8);
+      addBox(group, M.paverLot, x, 0.07, z, 3.8, 0.01, 0.45);
+      addBox(group, M.paverLot, x, 0.07, z, 0.45, 0.01, 3.8);
+      addShared(group, fountainGeo, M.paverLot, x, 0.07, z);
+      addShared(group, fountainGeo, M.water, x, 0.1, z, 0.75, 0.6, 0.75);
+      [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2], [-1.3, 0.2], [0.2, 1.35], [1.3, -0.2], [-0.2, -1.35]].forEach(([ox, oz]) => {
+        addTree(group, x + ox, z + oz, 0.9 + rng() * 0.4, rng);
+      });
+    }
+
+    const LOT_OFFSETS = [-10, -5, 0, 5, 10];
+    const STREETS = [-7.5, -2.5, 2.5, 7.5];
+    function forEachLot(cx, cb) {
+      for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) cb(cx + LOT_OFFSETS[i], LOT_OFFSETS[j], i, j);
+    }
+    const lotRng = (cls, i, j, tier) => mulberry32(cls * 7919 + (i * 5 + j) * 131 + tier * 1009 + 17);
+    const isCenter = (i, j) => i === 2 && j === 2;
+
+    /* ---------- District builders ---------- */
+    function buildLower(group, tier, prog, cx) {
+      const hf = 0.8 + 0.5 * prog;
+      forEachLot(cx, (x, z, i, j) => {
+        const r = lotRng(0, i, j, tier);
+        if (tier === 0) {
+          addBox(group, M.dirtLot, x, 0, z, 3.8, 0.05, 3.8);
+          const n = 6 + Math.floor(r() * 3);
+          for (let k = 0; k < n; k++) {
+            const w = 0.55 + r() * 0.5, d = 0.5 + r() * 0.45, h = 0.3 + r() * 0.22;
+            const px = x + (r() - 0.5) * 2.7, pz = z + (r() - 0.5) * 2.7, ry = r() * Math.PI;
+            addBox(group, pick(r, M.shackWalls), px, 0.05, pz, w, h, d, ry);
+            const roof = addBox(group, pick(r, M.shackRoofs), px, 0.05 + h, pz, w + 0.14, 0.035, d + 0.14, ry);
+            roof.rotation.z = (r() - 0.5) * 0.25;
+          }
+          if (r() < 0.6) addShared(group, barrelGeo, pick(r, M.barrel), x + (r() - 0.5) * 3, 0.05, z + (r() - 0.5) * 3);
+        } else if (tier === 1) {
+          addBox(group, M.dirtLot, x, 0, z, 3.8, 0.05, 3.8);
+          [[-0.85, -0.85], [0.85, -0.85], [-0.85, 0.85], [0.85, 0.85]].forEach(([ox, oz]) => {
+            if (r() < 0.12) return;
+            const w = 1.15 + r() * 0.3, d = 1.05 + r() * 0.35, h = 0.42 + r() * 0.12;
+            const px = x + ox + (r() - 0.5) * 0.2, pz = z + oz + (r() - 0.5) * 0.2;
+            addBox(group, pick(r, M.brick), px, 0.05, pz, w, h, d);
+            addBox(group, M.slab, px, 0.05 + h, pz, w + 0.04, 0.04, d + 0.04);
+            if (r() < 0.5) {
+              const w2 = w * (0.5 + r() * 0.3);
+              addBox(group, M.blockGray, px - (w - w2) / 2, 0.09 + h, pz, w2, h * 0.8, d * 0.8);
+            } else {
+              for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+                addBox(group, M.rebar, px + sx * (w / 2 - 0.06), 0.09 + h, pz + sz * (d / 2 - 0.06), 0.025, 0.2, 0.025);
+              }
+            }
+            addBox(group, M.door, px, 0.05, pz + d / 2 + 0.005, 0.18, 0.28, 0.02);
+          });
+        } else if (tier === 2) {
+          addBox(group, M.paverLot, x, 0, z, 3.8, 0.06, 3.8);
+          [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]].forEach(([ox, oz]) => {
+            const px = x + ox, pz = z + oz;
+            addBox(group, M.grassLot, px, 0.06, pz, 1.7, 0.015, 1.7);
+            addBox(group, pick(r, M.pastel), px, 0.06, pz - 0.1, 1.25, 0.5, 1.1);
+            addShared(group, pyramidGeo, pick(r, M.roofTile), px, 0.56, pz - 0.1, 1.4, 0.36, 1.25);
+            addBox(group, M.door, px - 0.3, 0.06, pz + 0.455, 0.2, 0.3, 0.02);
+            addBox(group, M.winDark, px + 0.25, 0.25, pz + 0.455, 0.3, 0.18, 0.02);
+          });
+        } else if (tier === 3) {
+          if (isCenter(i, j)) return addPark(group, x, z, r);
+          addBox(group, M.grassLot, x, 0, z, 3.8, 0.06, 3.8);
+          if ((i + j) % 2 === 0) {
+            const floors = Math.max(3, Math.round((3 + r() * 1.5) * hf));
+            addBuilding(group, F.lowModern, x, z - 0.4, 3.1, floors * FLOOR_H, 1.8, 0.06);
+            addBox(group, M.paverLot, x, 0.06, z + 1.25, 3.4, 0.015, 0.7);
+          } else {
+            [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]].forEach(([ox, oz]) => {
+              const px = x + ox, pz = z + oz;
+              addBox(group, M.white, px, 0.06, pz, 1.25, 0.55, 1.1);
+              addBox(group, M.wood, px + 0.25, 0.61, pz, 0.6, 0.32, 0.9);
+              addBox(group, M.winDark, px - 0.2, 0.2, pz + 0.555, 0.5, 0.25, 0.02);
+              addBox(group, M.solar, px - 0.3, 0.63, pz, 0.45, 0.03, 0.8).rotation.z = 0.3;
+            });
+          }
+        } else {
+          if (isCenter(i, j) || (i === 0 && j === 4)) return addPark(group, x, z, r);
+          addBox(group, M.grassLot, x, 0, z, 3.8, 0.06, 3.8);
+          const f1 = Math.max(4, Math.round((5 + r() * 2) * hf));
+          const f2 = Math.max(4, Math.round((5 + r() * 2) * hf));
+          addBuilding(group, F.lowModern, x, z - 0.85, 3.2, f1 * FLOOR_H, 1.25, 0.06);
+          addBuilding(group, F.modern, x, z + 0.95, 3.2, f2 * FLOOR_H, 1.1, 0.06);
+          for (const [bz, f] of [[-0.85, f1], [0.95, f2]]) {
+            for (let k = -1; k <= 1; k++) {
+              addBox(group, M.solar, x + k * 0.95, 0.07 + f * FLOOR_H, z + bz, 0.75, 0.04, 0.7).rotation.x = -0.35;
+            }
+          }
+        }
+      });
+    }
+
+    function buildMiddle(group, tier, prog, cx) {
+      const hf = 0.8 + 0.5 * prog;
+      forEachLot(cx, (x, z, i, j) => {
+        const r = lotRng(1, i, j, tier);
+        if (tier === 0) {
+          addBox(group, M.concreteLot, x, 0, z, 3.8, 0.06, 3.8);
+          const floors = Math.max(3, Math.round((3 + r() * 1.4) * hf));
+          addBuilding(group, F.concrete, x, z - 0.3, 3.0, floors * FLOOR_H, 1.6, 0.06);
+          addBox(group, M.dirtLot, x + 0.6, 0.06, z + 1.25, 1.8, 0.012, 0.8);
+        } else if (tier === 1) {
+          addBox(group, M.concreteLot, x, 0, z, 3.8, 0.06, 3.8);
+          const fa = Math.max(4, Math.round((5 + r() * 2) * hf));
+          const fb = Math.max(4, Math.round((4 + r() * 2) * hf));
+          addBuilding(group, F.cream, x, z - 1.0, 3.3, fa * FLOOR_H, 1.2, 0.06);
+          addBuilding(group, F.cream, x + 1.05, z + 0.65, 1.2, fb * FLOOR_H, 1.9, 0.06);
+          addBox(group, M.grassLot, x - 0.7, 0.06, z + 0.75, 1.6, 0.015, 1.6);
+          addTree(group, x - 0.7, z + 0.75, 0.9, r);
+        } else if (tier === 2) {
+          if (isCenter(i, j)) return addPark(group, x, z, r);
+          addBox(group, M.grassLot, x, 0, z, 3.8, 0.06, 3.8);
+          const fa = Math.max(6, Math.round((7 + r() * 3) * hf));
+          const fb = Math.max(6, Math.round((7 + r() * 3) * hf));
+          addBuilding(group, F.modern, x - 0.9, z - 0.9, 1.55, fa * FLOOR_H, 1.55, 0.06);
+          addBuilding(group, F.modern, x + 0.9, z + 0.9, 1.55, fb * FLOOR_H, 1.55, 0.06);
+          addTree(group, x + 0.9, z - 0.9, 1.1, r);
+          addTree(group, x - 0.9, z + 0.9, 1.1, r);
+          addBox(group, M.paverLot, x, 0.06, z, 0.5, 0.012, 3.6);
+        } else {
+          if (isCenter(i, j)) return addPark(group, x, z, r);
+          addBox(group, M.grassLot, x, 0, z, 3.8, 0.06, 3.8);
+          const podium = FLOOR_H * 1.3;
+          addBuilding(group, F.glassTeal, x, z, 3.3, podium, 3.3, 0.06);
+          addBox(group, M.darkGrass, x, 0.06 + podium, z, 3.2, 0.05, 3.2);
+          const floors = Math.max(9, Math.round((10 + r() * 4) * hf));
+          const tx = x + (r() - 0.5) * 0.6, tz = z + (r() - 0.5) * 0.6;
+          const top = 0.11 + podium + floors * FLOOR_H;
+          addBuilding(group, pick(r, [F.modern, F.glassTeal]), tx, tz, 1.8, floors * FLOOR_H, 1.8, 0.11 + podium);
+          addBox(group, M.darkGrass, tx, top, tz, 1.6, 0.06, 1.6);
+          addTree(group, tx + 0.4, tz + 0.4, 0.6, r);
+          addTree(group, x - 1.2, z + 1.2, 0.7, r);
+          addTree(group, x + 1.2, z - 1.2, 0.7, r);
+        }
+      });
+    }
+
+    function addVilla(group, x, z, r) {
+      addBox(group, M.grassLot, x, 0, z, 3.8, 0.06, 3.8);
+      addBox(group, M.white, x - 0.35, 0.06, z - 0.55, 2.0, 0.62, 1.3);
+      addBox(group, M.roofLight, x - 0.35, 0.68, z - 0.55, 2.1, 0.05, 1.4);
+      addBox(group, M.wood, x + 0.85, 0.06, z + 0.15, 1.0, 0.5, 1.1);
+      addShared(group, pyramidGeo, pick(r, M.roofTile), x + 0.85, 0.56, z + 0.15, 1.15, 0.3, 1.25);
+      addBox(group, M.winDark, x - 0.35, 0.22, z + 0.105, 1.4, 0.3, 0.02);
+      addBox(group, M.paverLot, x - 0.45, 0.06, z + 1.0, 1.7, 0.02, 1.0);
+      addBox(group, M.water, x - 0.45, 0.075, z + 1.0, 1.35, 0.02, 0.7);
+      for (const [hx, hz, hw, hd] of [[0, -1.82, 3.7, 0.12], [0, 1.82, 3.7, 0.12], [-1.82, 0, 0.12, 3.7], [1.82, 0, 0.12, 3.7]]) {
+        addBox(group, M.hedge, x + hx, 0.06, z + hz, hw, 0.22, hd);
+      }
+      addTree(group, x + 1.25, z - 1.25, 1.1, r);
+      addTree(group, x + 1.3, z + 1.25, 0.9, r);
+    }
+
+    function buildUpper(group, tier, prog, cx) {
+      const hf = 0.8 + 0.5 * prog;
+      const glass = [F.glassBlue, F.glassDark, F.glassTeal];
+      forEachLot(cx, (x, z, i, j) => {
+        const r = lotRng(2, i, j, tier);
+        if (tier === 0) return addVilla(group, x, z, r);
+        if (tier === 1) {
+          if (r() < 0.36 || isCenter(i, j)) {
+            addBox(group, M.paverLot, x, 0, z, 3.8, 0.06, 3.8);
+            const floors = Math.max(8, Math.round((10 + r() * 6) * hf));
+            addBuilding(group, F.glassBlue, x, z, 2.2, floors * FLOOR_H, 2.2, 0.06);
+            addTree(group, x - 1.4, z + 1.4, 0.9, r);
+          } else {
+            addVilla(group, x, z, r);
+          }
+          return;
+        }
+        addBox(group, M.paverLot, x, 0, z, 3.8, 0.06, 3.8);
+        if (tier === 2) {
+          if (r() < 0.5) {
+            const floors = Math.max(14, Math.round((15 + r() * 15) * hf));
+            addBuilding(group, pick(r, glass), x, z, 2.6, floors * FLOOR_H, 2.6, 0.06);
+          } else {
+            const fa = Math.max(12, Math.round((12 + r() * 12) * hf));
+            const fb = Math.max(12, Math.round((12 + r() * 12) * hf));
+            addBuilding(group, pick(r, glass), x - 0.85, z - 0.85, 1.6, fa * FLOOR_H, 1.6, 0.06);
+            addBuilding(group, pick(r, glass), x + 0.85, z + 0.85, 1.6, fb * FLOOR_H, 1.6, 0.06);
+          }
+          addTree(group, x - 1.4, z + 1.4, 0.8, r);
+          addTree(group, x + 1.4, z - 1.4, 0.8, r);
+          return;
+        }
+        if (isCenter(i, j)) {
+          const floors = Math.round(72 * hf);
+          const h = floors * FLOOR_H;
+          addBuilding(group, F.glassDark, x, z, 3.6, FLOOR_H * 3, 3.6, 0.06);
+          addTower(group, F.glassBlue, x, z, 1.35, h);
+          addShared(group, spireGeo, M.spire, x, h, z, 1, h * 0.18, 1);
+          return;
+        }
+        const floors = Math.max(26, Math.round((28 + r() * 26) * hf));
+        const fac = pick(r, glass);
+        const h1 = Math.round(floors * 0.55) * FLOOR_H;
+        const h2 = Math.round(floors * 0.3) * FLOOR_H;
+        const h3 = Math.round(floors * 0.15) * FLOOR_H;
+        addBuilding(group, fac, x, z, 2.9, h1, 2.9, 0.06);
+        addBuilding(group, fac, x, z, 2.3, h2, 2.3, 0.06 + h1);
+        addBuilding(group, fac, x, z, 1.7, h3, 1.7, 0.06 + h1 + h2);
+        if (r() < 0.5) addBox(group, M.spire, x, 0.06 + h1 + h2 + h3, z, 0.06, 2 + r() * 2, 0.06);
+      });
+    }
+
+    /* ---------- Static city: ground, avenues ---------- */
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 200), M.ground);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    function addStrip(x, z, w, d, mat, y = 0.02) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, y, z);
+      m.receiveShadow = true;
+      scene.add(m);
+      return m;
+    }
+    for (const zz of [-14.6, 14.6]) {
+      addStrip(0, zz, 104, 3.2, M.asphalt);
+      for (let x = -50; x < 50; x += 2.4) addStrip(x + 0.6, zz, 1.1, 0.08, M.marking, 0.025);
+    }
+    for (const xx of [-15, 15, -45, 45]) {
+      addStrip(xx, 0, 3.2, 26, M.asphalt);
+      for (let z = -12; z < 12; z += 2.4) addStrip(xx, z + 0.6, 0.08, 1.1, M.marking, 0.025);
+    }
+
+    /* ---------- Districts (dynamic) ---------- */
+    const DISTRICTS = [
+      { name: 'Distrito Bajo', cls: 0, cx: -30, th: [0.9, 1.6, 2.5, 4], build: buildLower, dot: 'bg-amber-400', text: 'text-amber-300',
+        trees: [0, 0.04, 0.25, 0.6, 0.85], lights: [0, 0.12, 0.55, 0.9, 1], cars: [0.03, 0.1, 0.35, 0.6, 0.8], paved: [false, false, true, true, true], glow: [0, 0.1, 0.45, 0.8, 1] },
+      { name: 'Distrito Medio', cls: 1, cx: 0, th: [2, 4, 8], build: buildMiddle, dot: 'bg-sky-400', text: 'text-sky-300',
+        trees: [0.12, 0.35, 0.7, 1], lights: [0.5, 0.8, 1, 1], cars: [0.3, 0.5, 0.75, 1], paved: [true, true, true, true], glow: [0.35, 0.6, 0.85, 1] },
+      { name: 'Distrito Alto', cls: 2, cx: 30, th: [6, 15, 40], build: buildUpper, dot: 'bg-violet-400', text: 'text-violet-300',
+        trees: [0.6, 0.5, 0.6, 0.8], lights: [0.6, 1, 1, 1], cars: [0.3, 0.5, 0.8, 1], paved: [true, true, true, true], glow: [0.6, 0.8, 1, 1] },
+    ];
+    const DIRT_COLOR = new THREE.Color(0x5e4630);
+    const ASPHALT_COLOR = new THREE.Color(0x2e3239);
+
+    function tierInfo(ratio, th) {
+      let t = 0;
+      while (t < th.length && ratio >= th[t]) t++;
+      const lo = t === 0 ? th[0] / 2.5 : th[t - 1];
+      const hi = t === th.length ? th[th.length - 1] * 3 : th[t];
+      const prog = clamp(Math.log(Math.max(ratio, 1e-6) / lo) / Math.log(hi / lo), 0, 1);
+      return { tier: t, prog };
+    }
+
+    const glowTexture = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, 'rgba(255,214,150,1)');
+      g.addColorStop(0.4, 'rgba(255,190,110,0.35)');
+      g.addColorStop(1, 'rgba(255,170,90,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 128, 128);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    const glowMat = new THREE.MeshBasicMaterial({ map: glowTexture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+    const poleGeo = new THREE.CylinderGeometry(0.03, 0.045, 1, 6).translate(0, 0.5, 0);
+    const headGeo = new THREE.SphereGeometry(0.09, 10, 8);
+    const glowGeo = new THREE.PlaneGeometry(2.6, 2.6).rotateX(-Math.PI / 2);
+    const carGeo = new THREE.BoxGeometry(0.5, 0.2, 0.26).translate(0, 0.1, 0);
+    const carColors = [0xe11d48, 0xf8fafc, 0x1e293b, 0x2563eb, 0xf59e0b, 0x64748b, 0x10b981, 0xd4d4d8];
+
+    function shuffled(arr, rng) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    const dummy = new THREE.Object3D();
+    const tmpColor = new THREE.Color();
+    const districtState = DISTRICTS.map((def) => {
+      const rng = mulberry32(400 + def.cls * 31);
+
+      const baseMat = new THREE.MeshStandardMaterial({ color: ASPHALT_COLOR.clone(), roughness: 0.95 });
+      const base = new THREE.Mesh(new THREE.PlaneGeometry(25.4, 25.4), baseMat);
+      base.rotation.x = -Math.PI / 2;
+      base.position.set(def.cx, 0.012, 0);
+      base.receiveShadow = true;
+      scene.add(base);
+
+      const lampSpots = [];
+      for (const s of STREETS) {
+        for (const o of LOT_OFFSETS) {
+          lampSpots.push([def.cx + s + 0.55, o + 1.2]);
+          lampSpots.push([def.cx + o - 1.2, s + 0.55]);
+        }
+      }
+      for (const s of STREETS) for (const s2 of STREETS) lampSpots.push([def.cx + s + 0.6, s2 + 0.6]);
+      const lamps = shuffled(lampSpots, rng);
+      const poles = new THREE.InstancedMesh(poleGeo, M.pole, lamps.length);
+      const heads = new THREE.InstancedMesh(headGeo, M.lampHead, lamps.length);
+      const glows = new THREE.InstancedMesh(glowGeo, glowMat, lamps.length);
+      lamps.forEach(([x, z], k) => {
+        dummy.position.set(x, 0, z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+        poles.setMatrixAt(k, dummy.matrix);
+        dummy.position.set(x, 1.0, z); dummy.updateMatrix();
+        heads.setMatrixAt(k, dummy.matrix);
+        dummy.position.set(x, 0.04, z); dummy.updateMatrix();
+        glows.setMatrixAt(k, dummy.matrix);
+      });
+      poles.castShadow = true;
+      glows.renderOrder = 2;
+      scene.add(poles, heads, glows);
+
+      const treeSpots = [];
+      for (const s of STREETS) {
+        for (let a = -11.6; a <= 11.6; a += 1.45) {
+          if (STREETS.some((s2) => Math.abs(a - s2) < 0.9)) continue;
+          for (const side of [-0.78, 0.78]) {
+            treeSpots.push([def.cx + s + side, a]);
+            treeSpots.push([def.cx + a, s + side]);
+          }
+        }
+      }
+      for (let a = -11.6; a <= 11.6; a += 1.6) {
+        treeSpots.push([def.cx + a, -12.35]);
+        treeSpots.push([def.cx + a, 12.35]);
+      }
+      const trees = shuffled(treeSpots, rng);
+      const trunks = new THREE.InstancedMesh(trunkGeo, M.trunk, trees.length);
+      const crowns = new THREE.InstancedMesh(crownGeo, M.crown, trees.length);
+      trees.forEach(([x, z], k) => {
+        const s = 0.8 + rng() * 0.45;
+        dummy.position.set(x, 0.02, z); dummy.rotation.set(0, rng() * Math.PI, 0); dummy.scale.set(s, s, s); dummy.updateMatrix();
+        trunks.setMatrixAt(k, dummy.matrix);
+        crowns.setMatrixAt(k, dummy.matrix);
+        crowns.setColorAt(k, tmpColor.setHex(treeColors[k % treeColors.length]));
+      });
+      trunks.castShadow = crowns.castShadow = true;
+      trunks.count = crowns.count = 0;
+      scene.add(trunks, crowns);
+
+      const pointLight = new THREE.PointLight(0xffc98a, 0, 34, 1.4);
+      pointLight.position.set(def.cx, 7, 0);
+      scene.add(pointLight);
+
+      return {
+        def, base, baseMat, poles, heads, glows, trunks, crowns, pointLight,
+        lampCount: lamps.length, treeCount: trees.length,
+        group: null, key: '', tier: 0, prog: 0, p: 0, grow: 1, ratio: 1,
+        lightLevel: 0, targetLight: 0,
+      };
+    });
+
+    /* ---------- Traffic ---------- */
+    function makePool(lanes, size, seed) {
+      const rng = mulberry32(seed);
+      const mesh = new THREE.InstancedMesh(carGeo, M.car, size);
+      mesh.castShadow = true;
+      const cars = [];
+      for (let k = 0; k < size; k++) {
+        const lane = lanes[k % lanes.length];
+        cars.push({ ...lane, pos: lane.min + rng() * (lane.max - lane.min), speed: 2.2 + rng() * 2.4 });
+        mesh.setColorAt(k, tmpColor.setHex(carColors[Math.floor(rng() * carColors.length)]));
+      }
+      mesh.count = 0;
+      scene.add(mesh);
+      return { mesh, cars, target: 0, current: 0 };
+    }
+    const mainLanes = [];
+    for (const zz of [-14.6, 14.6]) {
+      mainLanes.push({ axis: 'x', fixed: zz - 0.7, min: -52, max: 52, dir: 1 });
+      mainLanes.push({ axis: 'x', fixed: zz + 0.7, min: -52, max: 52, dir: -1 });
+    }
+    for (const xx of [-15, 15, -45, 45]) {
+      mainLanes.push({ axis: 'z', fixed: xx - 0.7, min: -14.6, max: 14.6, dir: 1 });
+      mainLanes.push({ axis: 'z', fixed: xx + 0.7, min: -14.6, max: 14.6, dir: -1 });
+    }
+    const mainPool = makePool(shuffled(mainLanes, mulberry32(9)), 170, 21);
+    const districtPools = DISTRICTS.map((def, idx) => {
+      const lanes = [];
+      for (const s of STREETS) {
+        lanes.push({ axis: 'x', fixed: s - 0.27, min: def.cx - 12.5, max: def.cx + 12.5, dir: 1 });
+        lanes.push({ axis: 'x', fixed: s + 0.27, min: def.cx - 12.5, max: def.cx + 12.5, dir: -1 });
+        lanes.push({ axis: 'z', fixed: def.cx + s - 0.27, min: -12.5, max: 12.5, dir: 1 });
+        lanes.push({ axis: 'z', fixed: def.cx + s + 0.27, min: -12.5, max: 12.5, dir: -1 });
+      }
+      return makePool(shuffled(lanes, mulberry32(50 + idx)), 70, 77 + idx);
+    });
+
+    function updatePool(pool, dt, speedFactor) {
+      pool.current = lerp(pool.current, pool.target, Math.min(1, dt * 2));
+      const n = Math.round(pool.current);
+      pool.mesh.count = n;
+      for (let k = 0; k < n; k++) {
+        const c = pool.cars[k];
+        c.pos += c.dir * c.speed * speedFactor * dt;
+        if (c.pos > c.max) c.pos = c.min;
+        if (c.pos < c.min) c.pos = c.max;
+        if (c.axis === 'x') {
+          dummy.position.set(c.pos, 0.03, c.fixed);
+          dummy.rotation.set(0, c.dir > 0 ? 0 : Math.PI, 0);
+        } else {
+          dummy.position.set(c.fixed, 0.03, c.pos);
+          dummy.rotation.set(0, c.dir > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
+        }
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        pool.mesh.setMatrixAt(k, dummy.matrix);
+      }
+      pool.mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    /* ---------- Apply simulation to 3D ---------- */
+    function disposeGroup(group) {
+      group.traverse((o) => {
+        if (o.userData.ownGeometry) o.geometry.dispose();
+        if (o.userData.ownMaterial) o.material.dispose();
+      });
+      scene.remove(group);
+    }
+
+    const env = { cityP: 0.5, targetCityP: 0.5, night: 0, targetNight: 0, speed: 1 };
+
+    function applyCity(sim) {
+      env.targetCityP = clamp((Math.log10(sim.mean / BASE_PER_CAPITA) + 0.6) / 1.6, 0, 1);
+      env.speed = 0.6 + env.targetCityP * 0.8;
+      mainPool.target = 12 + 158 * env.targetCityP;
+
+      districtState.forEach((d, idx) => {
+        const ratio = sim.incomes[idx] / POVERTY_LINE;
+        const { tier, prog } = tierInfo(ratio, d.def.th);
+        const bucket = Math.round(prog * 5);
+        const key = `${tier}_${bucket}`;
+        d.ratio = ratio;
+        d.tier = tier;
+        d.prog = prog;
+        d.p = (tier + prog) / (d.def.th.length + 1);
+        if (key !== d.key) {
+          const tierChanged = !d.key || d.key.split('_')[0] !== String(tier);
+          d.key = key;
+          if (d.group) disposeGroup(d.group);
+          const g = new THREE.Group();
+          d.def.build(g, tier, prog, d.def.cx);
+          g.traverse((o) => {
+            if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+          });
+          scene.add(g);
+          d.group = g;
+          if (tierChanged) { d.grow = 0; g.scale.y = 0.001; }
+          d.baseMat.color.copy(d.def.paved[tier] ? ASPHALT_COLOR : DIRT_COLOR);
+          d.trunks.count = d.crowns.count = Math.round(d.treeCount * d.def.trees[tier]);
+          const lampN = Math.round(d.lampCount * d.def.lights[tier]);
+          d.poles.count = d.heads.count = d.glows.count = lampN;
+        }
+        d.targetLight = d.def.glow[tier];
+        districtPools[idx].target = 70 * d.def.cars[tier];
+      });
+    }
+
+    /* ---------- Environment colors ---------- */
+    const SKY_POOR = new THREE.Color(0x9a8f7c);
+    const SKY_RICH = new THREE.Color(0x8cc8f2);
+    const SKY_NIGHT = new THREE.Color(0x070c1a);
+    const GROUND_POOR = new THREE.Color(0x7a6a4c);
+    const GROUND_RICH = new THREE.Color(0x4f8a3e);
+    const skyColor = new THREE.Color();
+
+    function updateEnvironment(dt) {
+      env.cityP = lerp(env.cityP, env.targetCityP, Math.min(1, dt * 2.5));
+      env.night = lerp(env.night, env.targetNight, Math.min(1, dt * 2.5));
+      const day = 1 - env.night;
+
+      skyColor.copy(SKY_POOR).lerp(SKY_RICH, env.cityP).lerp(SKY_NIGHT, env.night);
+      scene.background = skyColor;
+      scene.fog.color.copy(skyColor);
+      scene.fog.near = lerp(40, 90, env.cityP);
+      scene.fog.far = lerp(150, 240, env.cityP);
+
+      M.ground.color.copy(GROUND_POOR).lerp(GROUND_RICH, env.cityP);
+
+      sun.intensity = day * lerp(1.6, 2.8, env.cityP);
+      hemi.intensity = lerp(0.12, lerp(0.7, 1.0, env.cityP), day);
+      moon.intensity = env.night * 0.35;
+      scene.environmentIntensity = lerp(0.06, 0.5, day);
+
+      for (const f of FACADE_LIST) f.wall.emissiveIntensity = env.night * 0.75;
+      M.lampHead.emissiveIntensity = 0.25 + env.night * 4;
+      glowMat.opacity = env.night * 0.85;
+
+      districtState.forEach((d) => {
+        d.lightLevel = lerp(d.lightLevel, d.targetLight, Math.min(1, dt * 3));
+        d.pointLight.intensity = env.night * d.lightLevel * 90;
+        if (d.group && d.grow < 1) {
+          d.grow = Math.min(1, d.grow + dt * 1.6);
+          const e = 1 - Math.pow(1 - d.grow, 3);
+          d.group.scale.y = Math.max(0.001, e);
+        }
+      });
+    }
+
+    /* ---------- District labels ---------- */
+    const labelsRoot = document.getElementById('labels');
+    const labelEls = DISTRICTS.map((def) => {
+      const el = document.createElement('div');
+      el.className = 'district-label';
+      el.innerHTML = `
+        <div class="flex items-center gap-2 rounded-lg bg-slate-950/75 backdrop-blur ring-1 ring-white/15 px-2.5 py-1.5 shadow-lg">
+          <span class="h-2.5 w-2.5 rounded-full ${def.dot}"></span>
+          <div class="leading-tight">
+            <p class="text-[11px] font-semibold text-white">${def.name}</p>
+            <p class="text-[10px] font-mono ${def.text}" data-role="value">—</p>
+          </div>
+        </div>`;
+      labelsRoot.appendChild(el);
+      return { el, value: el.querySelector('[data-role="value"]'), anchor: new THREE.Vector3(def.cx, 0.2, 13.2) };
+    });
+    const projected = new THREE.Vector3();
+    function updateLabels() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      labelEls.forEach((l) => {
+        projected.copy(l.anchor).project(camera);
+        const visible = projected.z < 1 && Math.abs(projected.x) < 1.15 && Math.abs(projected.y) < 1.15;
+        l.el.style.opacity = visible ? '1' : '0';
+        const x = (projected.x * 0.5 + 0.5) * w;
+        const y = (-projected.y * 0.5 + 0.5) * h;
+        l.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+      });
+    }
+
+    /* ---------- Resize & loop ---------- */
+    function resize() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(container);
+    resize();
+
+    const clock = new THREE.Clock();
+    const state = { g: 0.09, gini: 0.62, t: 25, playing: false, playAcc: 0, logScale: true };
+
+    function animate() {
+      const dt = Math.min(clock.getDelta(), 0.1);
+      if (state.playing) {
+        state.playAcc += dt;
+        if (state.playAcc >= 0.3) {
+          state.playAcc = 0;
+          if (state.t >= 40) {
+            setPlaying(false);
+          } else {
+            state.t += 1;
+            yearsInput.value = String(state.t);
+            refresh();
+          }
+        }
+      }
+      updateEnvironment(dt);
+      updatePool(mainPool, dt, env.speed);
+      districtPools.forEach((p) => updatePool(p, dt, env.speed));
+      controls.update();
+      renderer.render(scene, camera);
+      updateLabels();
+      requestAnimationFrame(animate);
+    }
+
+    /* =====================================================================
+       4. DASHBOARD
+       ===================================================================== */
+    const $ = (id) => document.getElementById(id);
+    const growthInput = $('growth');
+    const giniInput = $('gini');
+    const yearsInput = $('years');
+
+    const povertyLinePlugin = {
+      id: 'povertyLine',
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        const y = scales.y.getPixelForValue(POVERTY_LINE);
+        if (y < chartArea.top || y > chartArea.bottom) return;
+        ctx.save();
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, y);
+        ctx.lineTo(chartArea.right, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '600 10px Inter, sans-serif';
+        const label = 'Línea de pobreza · $1.200';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(11,17,32,0.85)';
+        ctx.fillRect(chartArea.right - tw - 10, y - 17, tw + 8, 14);
+        ctx.fillStyle = '#fda4af';
+        ctx.fillText(label, chartArea.right - tw - 6, y - 6);
+        ctx.restore();
+      },
+    };
+
+    const logTick = (v) => {
+      if (v <= 0) return '';
+      const m = v / Math.pow(10, Math.floor(Math.log10(v) + 1e-9));
+      return [1, 2, 5].some((k) => Math.abs(m - k) < 0.01) ? moneyShort(v) : '';
+    };
+
+    const chart = new Chart($('chart'), {
+      type: 'bar',
+      data: {
+        labels: ['Clase baja (50%)', 'Clase media (40%)', 'Clase alta (10%)'],
+        datasets: [{
+          label: 'Ingreso anual por persona',
+          data: [0, 0, 0],
+          backgroundColor: ['rgba(251,191,36,0.85)', 'rgba(56,189,248,0.85)', 'rgba(167,139,250,0.85)'],
+          borderColor: ['#fbbf24', '#38bdf8', '#a78bfa'],
+          borderWidth: 1.5,
+          borderRadius: 8,
+          maxBarThickness: 64,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 280 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            callbacks: {
+              label: (c) => ` ${money(c.parsed.y)} / año · ${num(c.parsed.y / POVERTY_LINE, 1)}× línea de pobreza`,
+            },
+          },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { size: 11, family: 'Inter' } } },
+          y: {
+            type: 'logarithmic',
+            min: 100,
+            grid: { color: 'rgba(148,163,184,0.12)' },
+            ticks: { color: '#94a3b8', font: { size: 10, family: 'JetBrains Mono' }, callback: logTick, autoSkip: false },
+          },
+        },
+      },
+      plugins: [povertyLinePlugin],
+    });
+
+    function setScale(log) {
+      state.logScale = log;
+      const y = chart.options.scales.y;
+      y.type = log ? 'logarithmic' : 'linear';
+      y.min = log ? 100 : 0;
+      y.ticks.callback = log ? logTick : (v) => moneyShort(v);
+      $('scale-log').className = `px-2 py-1 rounded-md ${log ? 'bg-slate-600 text-white' : 'text-slate-400'}`;
+      $('scale-lin').className = `px-2 py-1 rounded-md ${!log ? 'bg-slate-600 text-white' : 'text-slate-400'}`;
+      $('scale-log').setAttribute('aria-pressed', String(log));
+      $('scale-lin').setAttribute('aria-pressed', String(!log));
+      chart.update();
+    }
+    $('scale-log').addEventListener('click', () => setScale(true));
+    $('scale-lin').addEventListener('click', () => setScale(false));
+
+    const LOWER_DESC = [
+      'Asentamiento informal: chabolas de chapa, calles de tierra, sin alumbrado ni servicios básicos.',
+      'Viviendas autoconstruidas de ladrillo sin terminar; electricidad irregular y calles todavía sin pavimentar.',
+      'Viviendas modulares consolidadas, calles pavimentadas y primeros puntos de alumbrado público.',
+      'Barrio consolidado: casas modernas y edificios bajos con servicios completos, alumbrado y arbolado.',
+      'Barrio residencial moderno: bloques limpios con paneles solares, parques y calles arboladas.',
+    ];
+    const MIDDLE_DESC = [
+      'Bloques de pisos sencillos y grises, con poco espacio verde.',
+      'Edificios de 5 a 7 plantas con patios y primeros árboles.',
+      'Complejos residenciales de altura media con zonas verdes y parque central.',
+      'Complejos de alta calidad con jardines en azotea y amplias zonas verdes.',
+    ];
+    const UPPER_DESC = [
+      'Casas grandes con jardín y piscina.',
+      'Primeras torres de oficinas entre las mansiones.',
+      'Distrito financiero de torres de cristal.',
+      'Skyline de rascacielos imponentes con una torre emblemática.',
+    ];
+
+    const TONES = {
+      emerald: { ring: 'ring-emerald-400/30', bg: 'bg-emerald-500/10', text: 'text-emerald-300' },
+      sky: { ring: 'ring-sky-400/30', bg: 'bg-sky-500/10', text: 'text-sky-300' },
+      amber: { ring: 'ring-amber-400/30', bg: 'bg-amber-500/10', text: 'text-amber-300' },
+      rose: { ring: 'ring-rose-400/30', bg: 'bg-rose-500/10', text: 'text-rose-300' },
+      slate: { ring: 'ring-white/10', bg: 'bg-slate-800/60', text: 'text-slate-200' },
+    };
+
+    function buildExplanation(sim) {
+      const [yL, yM, yA] = sim.incomes;
+      const pov = sim.poverty;
+      const start = simulate(sim.g, sim.gini, 0);
+      const gap = yA / yL;
+      const giniTxt = num(sim.gini, 2);
+      const gTxt = signedPct(sim.g, 1);
+      const yrs = yearsToEradicate(sim.g, sim.gini);
+      let tone, icon, title, body;
+
+      if (sim.t === 0) {
+        tone = 'slate'; icon = 'flag'; title = 'Año 0: el punto de partida';
+        body = `Todas las ciudades parten del mismo PIB (${moneyBig(BASE_GDP)}). Con un Gini de ${giniTxt}, la clase baja ingresa ${money(yL)} al año y el ${pct(pov)} de la población está bajo la línea de pobreza. Mueve el tiempo o pulsa reproducir para ver el efecto acumulado del crecimiento.`;
+      } else if (pov < 0.0005) {
+        if (sim.gini >= 0.45) {
+          tone = 'emerald'; icon = 'trending-up'; title = 'Desigualdad alta, pobreza cero';
+          body = `Aunque la clase alta gana ${num(gap, 1)} veces más que la baja, ${sim.t} años creciendo al ${gTxt} anual han multiplicado la economía por ${num(sim.factor, 1)}. La clase baja ingresa ${money(yL)} al año (${num(yL / POVERTY_LINE, 1)} veces la línea de pobreza): la pobreza absoluta ha sido erradicada y el distrito bajo vive en viviendas consolidadas con servicios completos.`;
+        } else {
+          tone = 'emerald'; icon = 'sparkles'; title = 'Prosperidad generalizada';
+          body = `El crecimiento sostenido (${gTxt} anual durante ${sim.t} años) ha multiplicado la riqueza por ${num(sim.factor, 1)}. La clase baja ingresa ${money(yL)}, ${num(yL / POVERTY_LINE, 1)} veces la línea de pobreza: nadie vive ya en pobreza absoluta. El motor fue el crecimiento, no solo el reparto.`;
+        }
+      } else if (sim.g < 0) {
+        tone = 'rose'; icon = 'trending-down';
+        title = sim.gini < 0.35 ? 'Igualdad en la miseria' : 'Recesión: todos pierden';
+        body = `La economía se ha contraído un ${pct(1 - sim.factor, 0)} en ${sim.t} años. ${sim.gini < 0.35
+          ? 'El reparto es muy igualitario, pero se reparte un pastel cada vez más pequeño: '
+          : 'La contracción golpea primero a los más vulnerables: '}el ${pct(pov)} de la población no cubre sus necesidades básicas (al inicio era el ${pct(start.poverty)}).`;
+      } else if (sim.g < 0.025) {
+        tone = 'amber'; icon = 'hourglass';
+        title = sim.gini < 0.35 ? 'Igualdad en la miseria' : 'Estancamiento';
+        body = `${sim.gini < 0.35
+          ? `La ciudad es muy igualitaria (la clase alta gana solo ${num(gap, 1)} veces más que la baja), pero con un crecimiento de apenas ${gTxt} anual el pastel casi no crece. `
+          : `Con un crecimiento de apenas ${gTxt} anual, la riqueza apenas avanza. `}La clase baja ingresa ${money(yL)} y el ${pct(pov)} sigue en pobreza absoluta${Number.isFinite(yrs) ? `; a este ritmo harían falta ${yrs} años para erradicarla.` : '.'}`;
+      } else {
+        tone = pov < 0.1 ? 'sky' : 'amber'; icon = 'rocket'; title = 'Crecimiento en marcha';
+        body = `Un crecimiento del ${gTxt} anual ha multiplicado la riqueza por ${num(sim.factor, 1)} en ${sim.t} años. La pobreza absoluta ha bajado del ${pct(start.poverty)} inicial al ${pct(pov)}, aunque la clase alta gane ${num(gap, 1)} veces más que la baja. ${Number.isFinite(yrs) ? `A este ritmo, la pobreza desaparecerá por completo en el año ${yrs}.` : ''}`;
+      }
+
+      const bench = simulate(BENCHMARK.g, BENCHMARK.gini, sim.t);
+      const diff = yL / bench.incomes[0] - 1;
+      const better = diff > 0.005;
+      const lesson = sim.t === 0
+        ? 'En el año 0 el crecimiento todavía no ha actuado: solo importa el reparto. Su efecto es acumulativo y crece exponencialmente con el tiempo.'
+        : `En una ciudad igualitaria de bajo crecimiento (+1% anual, Gini 0,25), tras ${sim.t} años la clase baja ingresaría ${money(bench.incomes[0])} y la pobreza sería del ${pct(bench.poverty)}. En tu ciudad, la clase baja ingresa ${money(yL)} (${signedPct(diff, 0)}). ${better
+          ? (sim.gini > BENCHMARK.gini + 0.05 ? 'Pese a ser más desigual, tu escenario es mejor para los más pobres: una porción menor de un pastel mucho más grande.' : 'Tu escenario es mejor para los más pobres.')
+          : 'El escenario de referencia es mejor para los más pobres: sin suficiente crecimiento, un reparto más desigual sí empeora su situación.'}`;
+
+      const t = TONES[tone];
+      const d = districtState;
+      return `
+        <div class="fade-in rounded-2xl ${t.bg} ring-1 ${t.ring} p-4">
+          <p class="flex items-center gap-2 text-base font-bold ${t.text}"><i data-lucide="${icon}" class="w-5 h-5"></i>${title}</p>
+          <p class="mt-2 text-sm text-slate-200 leading-relaxed text-pretty">${body}</p>
+        </div>
+        <ul class="flex flex-col gap-2">
+          ${[
+            [DISTRICTS[0], LOWER_DESC[d[0].tier], yL],
+            [DISTRICTS[1], MIDDLE_DESC[d[1].tier], yM],
+            [DISTRICTS[2], UPPER_DESC[d[2].tier], yA],
+          ].map(([def, desc, y]) => `
+            <li class="flex gap-3 rounded-xl bg-slate-800/50 ring-1 ring-white/5 p-3">
+              <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${def.dot}"></span>
+              <div>
+                <p class="text-xs font-semibold text-white">${def.name} <span class="font-mono font-medium ${def.text}">· ${money(y)}/año</span></p>
+                <p class="text-xs text-slate-400 leading-relaxed">${desc}</p>
+              </div>
+            </li>`).join('')}
+        </ul>
+        <div class="rounded-2xl bg-slate-950/60 ring-1 ring-white/10 p-4">
+          <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${better || sim.t === 0 ? 'text-emerald-300' : 'text-amber-300'}">
+            <i data-lucide="lightbulb" class="w-4 h-4"></i>Lección clave
+          </p>
+          <p class="mt-2 text-sm text-slate-300 leading-relaxed text-pretty">${lesson}</p>
+        </div>`;
+    }
+
+    let lastExplainKey = '';
+    function refresh() {
+      state.g = parseFloat(growthInput.value) / 100;
+      state.gini = parseFloat(giniInput.value);
+      state.t = parseInt(yearsInput.value, 10);
+      const sim = simulate(state.g, state.gini, state.t);
+      const [yL, yM, yA] = sim.incomes;
+
+      $('growth-out').textContent = signedPct(state.g, 1);
+      $('growth-out').className = `font-mono text-sm font-bold ${state.g < 0 ? 'text-rose-300' : state.g < 0.025 ? 'text-amber-300' : 'text-emerald-300'}`;
+      $('gini-out').textContent = num(state.gini, 2);
+      $('years-out').textContent = `${state.t} ${state.t === 1 ? 'año' : 'años'}`;
+
+      $('hud-year').textContent = String(state.t);
+      $('hud-gdp').textContent = moneyBig(sim.gdp);
+      $('hud-poverty').textContent = pct(sim.poverty);
+      $('hud-poverty').className = `font-mono font-semibold ${sim.poverty < 0.0005 ? 'text-emerald-300' : 'text-rose-300'}`;
+
+      $('m-gdp').textContent = moneyBig(sim.gdp);
+      $('m-gdp-sub').textContent = `×${num(sim.factor, 2)} desde el año 0`;
+      $('m-gdp-sub').className = `text-[11px] ${sim.factor >= 1 ? 'text-emerald-300' : 'text-rose-300'}`;
+
+      $('m-poverty').textContent = pct(sim.poverty);
+      $('m-poverty').className = `mt-1 font-mono text-lg font-bold ${sim.poverty < 0.0005 ? 'text-emerald-300' : sim.poverty < 0.1 ? 'text-amber-300' : 'text-rose-300'}`;
+      $('m-poverty-bar').style.width = `${Math.min(100, sim.poverty * 100)}%`;
+      $('m-poverty-sub').textContent = sim.poverty < 0.0005 ? 'Erradicada' : `${num(sim.poverty * POPULATION)} personas`;
+
+      const ratioTxt = (y) => `${num(y / POVERTY_LINE, 1)}× línea`;
+      $('m-low').textContent = moneyShort(yL);
+      $('m-low-sub').textContent = ratioTxt(yL);
+      $('m-low-sub').className = `text-[10px] ${GROUPS[0].spread[0] * yL >= POVERTY_LINE ? 'text-emerald-300' : 'text-rose-300'}`;
+      $('m-mid').textContent = moneyShort(yM);
+      $('m-mid-sub').textContent = ratioTxt(yM);
+      $('m-high').textContent = moneyShort(yA);
+      $('m-high-sub').textContent = ratioTxt(yA);
+      $('m-ratio').textContent = `${num(yA / yL, 1)}×`;
+
+      const yrs = yearsToEradicate(state.g, state.gini);
+      if (sim.poverty < 0.0005) {
+        $('m-years').textContent = 'Logrado';
+        $('m-years').className = 'mt-1 font-mono text-lg font-bold text-emerald-300';
+        $('m-years-sub').textContent = yrs === 0 ? 'desde el inicio' : `en el año ${yrs}`;
+      } else if (!Number.isFinite(yrs)) {
+        $('m-years').textContent = 'Nunca';
+        $('m-years').className = 'mt-1 font-mono text-lg font-bold text-rose-300';
+        $('m-years-sub').textContent = 'sin crecimiento no llega';
+      } else {
+        $('m-years').textContent = `Año ${yrs}`;
+        $('m-years').className = 'mt-1 font-mono text-lg font-bold text-amber-300';
+        $('m-years-sub').textContent = `faltan ${yrs - state.t} años`;
+      }
+
+      chart.data.datasets[0].data = [yL, yM, yA];
+      chart.update();
+
+      applyCity(sim);
+      labelEls.forEach((l, i) => {
+        l.value.textContent = `${moneyShort(sim.incomes[i])}/año · ${num(sim.incomes[i] / POVERTY_LINE, 1)}×`;
+      });
+
+      const explainKey = [state.g, state.gini, state.t].join('|');
+      if (explainKey !== lastExplainKey) {
+        lastExplainKey = explainKey;
+        $('explainer').innerHTML = buildExplanation(sim);
+        lucide.createIcons();
+      }
+    }
+
+    function setPlaying(on) {
+      state.playing = on;
+      const btn = $('btn-play');
+      btn.innerHTML = `<i data-lucide="${on ? 'pause' : 'play'}" class="w-4 h-4"></i>`;
+      btn.setAttribute('aria-label', on ? 'Pausar la evolución' : 'Reproducir la evolución año a año');
+      lucide.createIcons();
+    }
+    $('btn-play').addEventListener('click', () => {
+      if (!state.playing && state.t >= 40) {
+        yearsInput.value = '0';
+        refresh();
+      }
+      state.playAcc = 0;
+      setPlaying(!state.playing);
+    });
+
+    [growthInput, giniInput].forEach((el) => el.addEventListener('input', refresh));
+    yearsInput.addEventListener('input', () => {
+      if (state.playing) setPlaying(false);
+      refresh();
+    });
+
+    document.querySelectorAll('.preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        growthInput.value = btn.dataset.g;
+        giniInput.value = btn.dataset.gini;
+        yearsInput.value = btn.dataset.t;
+        if (state.playing) setPlaying(false);
+        refresh();
+      });
+    });
+
+    $('btn-night').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      env.targetNight = env.targetNight > 0.5 ? 0 : 1;
+      const isNight = env.targetNight === 1;
+      btn.setAttribute('aria-pressed', String(isNight));
+      btn.setAttribute('aria-label', isNight ? 'Cambiar a vista diurna' : 'Cambiar a vista nocturna');
+      btn.innerHTML = `<i data-lucide="${isNight ? 'sun' : 'moon'}" class="w-5 h-5"></i>`;
+      lucide.createIcons();
+    });
+    $('btn-rotate').addEventListener('click', (e) => {
+      controls.autoRotate = !controls.autoRotate;
+      const btn = e.currentTarget;
+      btn.setAttribute('aria-pressed', String(controls.autoRotate));
+      btn.classList.toggle('ring-emerald-400/60', controls.autoRotate);
+      btn.classList.toggle('text-emerald-300', controls.autoRotate);
+    });
+    $('btn-reset').addEventListener('click', () => {
+      camera.position.copy(CAMERA_HOME);
+      controls.target.set(0, 2, 0);
+      controls.update();
+    });
+
+    lucide.createIcons();
+    refresh();
+    env.cityP = env.targetCityP;
+    districtState.forEach((d) => { d.grow = 1; if (d.group) d.group.scale.y = 1; d.lightLevel = d.targetLight; });
+    mainPool.current = mainPool.target;
+    districtPools.forEach((p) => { p.current = p.target; });
+    animate();
+    const loader = $('loading');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.remove(), 600);
+  </script>
+</body>
+</html>
