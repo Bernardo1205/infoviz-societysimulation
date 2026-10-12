@@ -49,6 +49,25 @@
     body { -webkit-font-smoothing: antialiased; letter-spacing: -0.011em; }
     .font-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
+    body,
+    body .ambient,
+    body aside,
+    body .glass,
+    body .glass::before,
+    body .inset-well,
+    body .hairline,
+    body .range,
+    body #explainer,
+    body #explainer p,
+    body [class*="text-white"] {
+      transition:
+        background 900ms ease,
+        background-color 900ms ease,
+        color 900ms ease,
+        border-color 900ms ease,
+        box-shadow 900ms ease;
+    }
+
     body.day-mode {
       background: #fff;
       color: #0f172a;
@@ -83,6 +102,22 @@
     body.day-mode #explainer,
     body.day-mode #explainer p {
       color: #000 !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body,
+      body .ambient,
+      body aside,
+      body .glass,
+      body .glass::before,
+      body .inset-well,
+      body .hairline,
+      body .range,
+      body #explainer,
+      body #explainer p,
+      body [class*="text-white"] {
+        transition-duration: 0.01ms;
+      }
     }
 
     .ambient {
