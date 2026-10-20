@@ -296,6 +296,9 @@
           <button id="btn-reset" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Restablecer cámara">
             <i data-lucide="scan" class="w-[18px] h-[18px]"></i>
           </button>
+          <button id="btn-sound" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Activar sonido ambiente" aria-pressed="false">
+            <i data-lucide="volume-2" class="w-[18px] h-[18px]"></i>
+          </button>
         </div>
       </header>
 
@@ -1345,7 +1348,337 @@
     const clock = new THREE.Clock();
     const state = { g: 0.09, gini: 0.62, t: 25, playing: false, playAcc: 0, logScale: true };
 
+    // Audio ambiente que se carga automáticamente al activar el sonido.
+    const CUSTOM_AUDIO_URL = 'ambient-city.mp3';
+
+    class UrbanSoundscape {
+      constructor() {
+        this.audio = null;
+        this.master = null;
+        this.bed = null;          // murmullo continuo de carretera lejana
+        this.noiseBuffer = null;  // ruido blanco compartido para el rodamiento de los coches
+        this.custom = null;       // audio propio del usuario (reemplaza al sonido sintético)
+        this.customUrlTried = false;
+        this.activity = 0.15;
+        this.volume = 0.5;
+        this.enabled = false;
+        this.ready = false;     // el grafo de audio está completo y se puede usar
+        this.failed = false;    // si el audio falla, se apaga solo y la simulación sigue
+        this.eventTimer = 0;
+        this.updateTimer = 0;
+        this.suspendTimer = 0;
+        this.lastUpdate = 0;
+        this.lastSim = null;
+        this.onChange = null;
+      }
+
+      async start() {
+        if (this.failed) return false;
+        try {
+          if (!this.ready) this.createGraph();
+          if (!this.ready) return false;
+          if (CUSTOM_AUDIO_URL && !this.customUrlTried) {
+            this.customUrlTried = true;
+            await this.loadCustomUrl(CUSTOM_AUDIO_URL);
+          }
+          clearTimeout(this.suspendTimer);
+          if (this.audio.state !== 'running') {
+            // se reintenta resume() en cada gesto real; el límite de espera evita quedar colgado
+            await Promise.race([Promise.resolve(this.audio.resume()).catch(() => {}), new Promise((resolve) => setTimeout(resolve, 1200))]);
+          }
+          if (!this.ready || this.audio.state !== 'running') return false;
+          this.enabled = true;
+          this.setMaster(1);
+          if (this.lastSim) this.applySimulation(this.lastSim);
+          if (!this.ready) return false;
+          this.scheduleEvent(400);   // un coche pasa casi enseguida
+          return true;
+        } catch (error) {
+          this.fail(error);
+          return false;
+        }
+      }
+
+      stop() {
+        this.enabled = false;
+        clearTimeout(this.eventTimer);
+        this.eventTimer = 0;
+        this.setMaster(0);
+        clearTimeout(this.suspendTimer);
+        // tras el fundido se suspende el contexto para no gastar CPU en silencio
+        this.suspendTimer = setTimeout(() => {
+          if (this.ready && !this.enabled) Promise.resolve(this.audio.suspend()).catch(() => {});
+        }, 1500);
+      }
+
+      fail(error) {
+        console.warn('Sonido de tráfico desactivado por un error; la simulación sigue funcionando.', error);
+        this.failed = true;
+        this.ready = false;
+        this.enabled = false;
+        clearTimeout(this.eventTimer);
+        clearTimeout(this.updateTimer);
+        clearTimeout(this.suspendTimer);
+        this.eventTimer = this.updateTimer = this.suspendTimer = 0;
+        try { if (this.audio) Promise.resolve(this.audio.close()).catch(() => {}); } catch (e) {}
+        this.audio = null;
+        if (this.onChange) { try { this.onChange(); } catch (e) {} }
+      }
+
+      createGraph() {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) { this.failed = true; return; }
+        try {
+          this.audio = new Ctx();
+          this.master = this.audio.createGain();
+          this.master.gain.value = 0;
+          this.master.connect(this.audio.destination);
+
+          // 2 s de ruido blanco reutilizable (evita crear un buffer nuevo por cada coche)
+          const length = this.audio.sampleRate * 2;
+          this.noiseBuffer = this.audio.createBuffer(1, length, this.audio.sampleRate);
+          const samples = this.noiseBuffer.getChannelData(0);
+          for (let i = 0; i < length; i++) samples[i] = Math.random() * 2 - 1;
+
+          this.bed = this.createBed();
+          this.ready = true;   // solo se marca listo cuando TODO se creó bien
+        } catch (error) {
+          this.fail(error);
+        }
+      }
+
+      // Carga un audio propio (ArrayBuffer de un mp3/wav/ogg) y lo reproduce en bucle.
+      // Mientras haya audio propio, el sonido sintético de coches queda en silencio.
+      async loadCustom(arrayBuffer) {
+        try {
+          if (!this.ready) this.createGraph();
+          if (!this.ready) return false;
+          const buffer = await this.audio.decodeAudioData(arrayBuffer);
+          if (!this.ready) return false;
+          if (this.custom) {
+            try { this.custom.source.stop(); this.custom.source.disconnect(); this.custom.gain.disconnect(); } catch (e) {}
+          }
+          const source = this.audio.createBufferSource();
+          const gain = this.audio.createGain();
+          source.buffer = buffer;
+          source.loop = true;
+          gain.gain.value = 0;
+          source.connect(gain).connect(this.master);
+          source.start();
+          this.custom = { source, gain, maximumGain: 0.9 };   // 0.9 = volumen máximo de tu audio
+          if (this.enabled && this.lastSim) this.applySimulation(this.lastSim);
+          return true;
+        } catch (error) {
+          console.warn('No se pudo cargar el audio propio.', error);
+          return false;
+        }
+      }
+
+      async loadCustomUrl(url) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return await this.loadCustom(await response.arrayBuffer());
+        } catch (error) {
+          console.warn('No se pudo cargar ' + url, error);
+          return false;
+        }
+      }
+
+      // Murmullo grave y constante del tráfico lejano, de fondo
+      createBed() {
+        const source = this.audio.createBufferSource();
+        const filter = this.audio.createBiquadFilter();
+        const gain = this.audio.createGain();
+        source.buffer = this.noiseBuffer;
+        source.loop = true;
+        filter.type = 'lowpass';
+        filter.frequency.value = 300;
+        filter.Q.value = 0.4;
+        gain.gain.value = 0;
+        source.connect(filter).connect(gain).connect(this.master);
+        source.start();
+        return { source, filter, gain, maximumGain: 0.16 };
+      }
+
+      ramp(param, value, time = 0.7) {
+        if (!Number.isFinite(value)) return;   // un NaN en un AudioParam lanza una excepción
+        const now = this.audio.currentTime;
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(value, now, time);
+      }
+
+      setMaster(value) {
+        if (!this.ready) return;
+        try {
+          this.ramp(this.master.gain, this.enabled && !document.hidden ? value : 0, 0.5);
+        } catch (error) { this.fail(error); }
+      }
+
+      // Se llama en cada refresh(): solo guarda el estado y agenda una actualización
+      // limitada (~8/s), así arrastrar un slider ya no satura el hilo de audio.
+      updateFromSimulation(sim) {
+        this.lastSim = sim;
+        if (!this.ready || !this.enabled || this.updateTimer) return;
+        const wait = Math.max(0, 120 - (performance.now() - this.lastUpdate));
+        this.updateTimer = setTimeout(() => {
+          this.updateTimer = 0;
+          this.lastUpdate = performance.now();
+          if (this.ready && this.enabled && this.lastSim) this.applySimulation(this.lastSim);
+        }, wait);
+      }
+
+      applySimulation(sim) {
+        try {
+          const growthActivity = clamp((Math.log10(Math.max(sim.factor, 1e-4)) + 0.15) / 2.1, 0, 1);
+          const currentGrowth = clamp((sim.g + 0.05) / 0.2, 0, 1);
+          const activity = clamp(growthActivity * 0.8 + currentGrowth * 0.2, 0.08, 1);
+          if (!Number.isFinite(activity)) return;
+          this.activity = activity;   // más actividad = más coches y más seguidos
+          this.volume = 0.15 + currentGrowth * 0.85;
+          if (this.custom) {
+            this.ramp(this.bed.gain.gain, 0);
+            this.ramp(this.custom.gain.gain, this.custom.maximumGain * this.volume);
+          } else {
+            this.ramp(this.bed.gain.gain, this.bed.maximumGain * (0.25 + activity * 0.75) * this.volume);
+            this.ramp(this.bed.filter.frequency, 220 + activity * 380);
+          }
+        } catch (error) {
+          this.fail(error);
+        }
+      }
+
+      scheduleEvent(firstDelay) {
+        if (this.eventTimer || !this.enabled) return;
+        const delay = firstDelay || Math.max(450, 4600 - this.activity * 3800 + Math.random() * 2400);
+        this.eventTimer = setTimeout(() => {
+          this.eventTimer = 0;
+          if (!this.enabled) return;
+          if (!document.hidden && !this.custom) {
+            this.playCar();
+            // con mucha actividad a veces se cruzan dos coches casi a la vez
+            if (this.activity > 0.5 && Math.random() < 0.35) {
+              setTimeout(() => { if (this.ready && this.enabled && !document.hidden) this.playCar(); }, 150 + Math.random() * 700);
+            }
+          }
+          this.scheduleEvent();
+        }, delay);
+      }
+
+      // Un coche que pasa de un lado a otro: motor con efecto Doppler,
+      // rodamiento de neumáticos, soplido de aire y desplazamiento estéreo.
+      playCar() {
+        try {
+          const audio = this.audio;
+          const now = audio.currentTime + 0.02;
+          const roll = Math.random();
+          const profile = roll < 0.12
+            ? { base: 48 + Math.random() * 14, dur: 3.4 + Math.random() * 1.2, vol: 1.15, tire: 700 }     // camión / autobús
+            : roll < 0.3
+              ? { base: 115 + Math.random() * 45, dur: 1.5 + Math.random() * 0.7, vol: 1.0, tire: 1500 }  // coche rápido
+              : { base: 70 + Math.random() * 35, dur: 2.2 + Math.random() * 1.2, vol: 0.85, tire: 1100 }; // coche normal
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          const d = profile.dur;
+          const mid = now + d * 0.55;   // instante en que pasa frente a nosotros
+          const level = Math.max(0.001, 0.2 * profile.vol * (0.45 + this.activity * 0.55) * this.volume);
+
+          // volumen: se acerca poco a poco, pasa y se aleja
+          const envelope = audio.createGain();
+          envelope.gain.setValueAtTime(0.0001, now);
+          envelope.gain.exponentialRampToValueAtTime(level, mid);
+          envelope.gain.exponentialRampToValueAtTime(0.0001, now + d);
+
+          // desplazamiento estéreo de un lado al otro
+          let output = envelope;
+          if (audio.createStereoPanner) {
+            const panner = audio.createStereoPanner();
+            panner.pan.setValueAtTime(-0.9 * dir, now);
+            panner.pan.linearRampToValueAtTime(0.9 * dir, now + d);
+            envelope.connect(panner);
+            output = panner;
+          }
+          output.connect(this.master);
+
+          // motor: dos osciladores graves; el tono cae al pasar (efecto Doppler)
+          const engineFilter = audio.createBiquadFilter();
+          engineFilter.type = 'lowpass';
+          engineFilter.Q.value = 0.8;
+          engineFilter.frequency.setValueAtTime(260, now);
+          engineFilter.frequency.exponentialRampToValueAtTime(950, mid);
+          engineFilter.frequency.exponentialRampToValueAtTime(300, now + d);
+          const engineGain = audio.createGain();
+          engineGain.gain.value = 0.55;
+          engineFilter.connect(engineGain).connect(envelope);
+
+          const oscillators = [[profile.base, 'sawtooth'], [profile.base * 2.01, 'triangle']].map(([frequency, type]) => {
+            const oscillator = audio.createOscillator();
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency * 1.1, now);
+            oscillator.frequency.linearRampToValueAtTime(frequency * 1.07, mid - d * 0.08);
+            oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.93, mid + d * 0.08);
+            oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.88, now + d);
+            oscillator.connect(engineFilter);
+            oscillator.start(now);
+            oscillator.stop(now + d + 0.1);
+            return oscillator;
+          });
+
+          // rodamiento de los neumáticos sobre el asfalto
+          const tire = audio.createBufferSource();
+          tire.buffer = this.noiseBuffer;
+          tire.loop = true;
+          const tireFilter = audio.createBiquadFilter();
+          tireFilter.type = 'bandpass';
+          tireFilter.Q.value = 0.8;
+          tireFilter.frequency.setValueAtTime(profile.tire * 0.7, now);
+          tireFilter.frequency.exponentialRampToValueAtTime(profile.tire * 1.3, mid);
+          tireFilter.frequency.exponentialRampToValueAtTime(profile.tire * 0.6, now + d);
+          const tireGain = audio.createGain();
+          tireGain.gain.value = 1.1;
+          tire.connect(tireFilter).connect(tireGain).connect(envelope);
+          tire.start(now, Math.random() * 1.5);
+          tire.stop(now + d + 0.1);
+
+          // soplido de aire justo en el momento de cruzar
+          const whoosh = audio.createBufferSource();
+          whoosh.buffer = this.noiseBuffer;
+          whoosh.loop = true;
+          const whooshFilter = audio.createBiquadFilter();
+          whooshFilter.type = 'bandpass';
+          whooshFilter.Q.value = 0.6;
+          whooshFilter.frequency.setValueAtTime(2600, mid - d * 0.2);
+          whooshFilter.frequency.exponentialRampToValueAtTime(900, mid + d * 0.25);
+          const whooshGain = audio.createGain();
+          whooshGain.gain.setValueAtTime(0.0001, mid - d * 0.2);
+          whooshGain.gain.exponentialRampToValueAtTime(level * 0.45, mid);
+          whooshGain.gain.exponentialRampToValueAtTime(0.0001, mid + d * 0.25);
+          whoosh.connect(whooshFilter).connect(whooshGain).connect(output);
+          whoosh.start(mid - d * 0.2, Math.random() * 1.5);
+          whoosh.stop(mid + d * 0.26);
+
+          tire.onended = () => {
+            try {
+              oscillators.forEach((o) => o.disconnect());
+              engineFilter.disconnect(); engineGain.disconnect();
+              tire.disconnect(); tireFilter.disconnect(); tireGain.disconnect();
+              whoosh.disconnect(); whooshFilter.disconnect(); whooshGain.disconnect();
+              envelope.disconnect(); output.disconnect();
+            } catch (e) {}
+          };
+        } catch (error) {
+          this.fail(error);
+        }
+      }
+
+      handleVisibility() {
+        this.setMaster(1);
+      }
+    }
+
+    let animErrors = 0;
     function animate() {
+      requestAnimationFrame(animate);   // se agenda primero: un error ya no mata el bucle
+      try {
       const dt = Math.min(clock.getDelta(), 0.1);
       if (state.playing) {
         state.playAcc += dt;
@@ -1366,7 +1699,9 @@
       controls.update();
       renderer.render(scene, camera);
       updateLabels();
-      requestAnimationFrame(animate);
+      } catch (error) {
+        if (animErrors++ < 5) console.error('Error en el bucle de animación (la simulación continúa):', error);
+      }
     }
 
     /* =====================================================================
@@ -1376,6 +1711,55 @@
     const growthInput = $('growth');
     const giniInput = $('gini');
     const yearsInput = $('years');
+    const soundscape = new UrbanSoundscape();
+    const soundButton = $('btn-sound');
+
+    let soundShown = null;   // null = todavía sin dibujar
+    function renderSoundButton() {
+      const state = soundscape.failed ? 'failed' : soundscape.enabled ? 'on' : 'off';
+      if (state === soundShown) return;   // solo toca el DOM cuando el estado cambia de verdad
+      soundShown = state;
+      const on = state === 'on';
+      const label = on ? 'Desactivar sonido ambiente'
+        : state === 'failed' ? 'El navegador no pudo iniciar el audio'
+        : 'Activar sonido ambiente';
+      soundButton.setAttribute('aria-pressed', String(on));
+      soundButton.setAttribute('aria-label', label);
+      soundButton.title = label;
+      // mismo estilo de "encendido" que el botón de rotación automática
+      soundButton.classList.toggle('ring-emerald-400/60', on);
+      soundButton.classList.toggle('text-emerald-300', on);
+      soundButton.classList.toggle('opacity-50', state === 'failed');
+      soundButton.innerHTML = `<i data-lucide="${on ? 'volume-2' : 'volume-x'}" class="w-[18px] h-[18px]"></i>`;
+      lucide.createIcons();
+    }
+    soundscape.onChange = renderSoundButton;
+    renderSoundButton();   // estado inicial coherente: apagado hasta que el audio arranque de verdad
+
+    // Desbloqueo del audio: el navegador solo lo permite tras un gesto real del usuario,
+    // así que se reintenta en cada gesto hasta que suene (salvo que lo silencies a mano).
+    let soundMutedByUser = false;
+    let soundStarting = false;
+    async function activateSound() {
+      if (soundMutedByUser || soundStarting || soundscape.enabled || soundscape.failed) return;
+      soundStarting = true;
+      try { await soundscape.start(); } finally { soundStarting = false; }
+      renderSoundButton();
+    }
+
+    soundButton.addEventListener('click', async () => {
+      if (soundscape.enabled) {
+        soundMutedByUser = true;
+        soundscape.stop();
+        renderSoundButton();
+      } else {
+        soundMutedByUser = false;
+        await activateSound();
+      }
+    });
+    document.addEventListener('visibilitychange', () => soundscape.handleVisibility());
+
+    ['pointerdown', 'touchend', 'keydown', 'click'].forEach((type) => document.addEventListener(type, activateSound, { passive: true }));
 
     const povertyLinePlugin = {
       id: 'povertyLine',
@@ -1612,6 +1996,7 @@
       chart.update();
 
       applyCity(sim);
+      try { soundscape.updateFromSimulation(sim); } catch (error) { console.warn(error); }
       labelEls.forEach((l, i) => {
         l.value.textContent = `${moneyShort(sim.incomes[i])}/año · ${num(sim.incomes[i] / POVERTY_LINE, 1)}×`;
       });
@@ -1632,6 +2017,7 @@
       lucide.createIcons();
     }
     $('btn-play').addEventListener('click', () => {
+      activateSound();
       if (!state.playing && state.t >= 40) {
         yearsInput.value = '0';
         refresh();
@@ -1640,14 +2026,19 @@
       setPlaying(!state.playing);
     });
 
-    [growthInput, giniInput].forEach((el) => el.addEventListener('input', refresh));
+    [growthInput, giniInput].forEach((el) => el.addEventListener('input', () => {
+      activateSound();
+      refresh();
+    }));
     yearsInput.addEventListener('input', () => {
+      activateSound();
       if (state.playing) setPlaying(false);
       refresh();
     });
 
     document.querySelectorAll('.preset').forEach((btn) => {
       btn.addEventListener('click', () => {
+        activateSound();
         growthInput.value = btn.dataset.g;
         giniInput.value = btn.dataset.gini;
         yearsInput.value = btn.dataset.t;
