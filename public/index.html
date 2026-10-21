@@ -259,6 +259,8 @@
     .fade-in { animation: fadeIn 0.35s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
+    body.day-mode #intro, body.day-mode #reflex { background: rgba(255, 255, 255, 0.97) !important; }
+
     @media (prefers-reduced-motion: reduce) {
       .fade-in { animation: none; }
       .glass-btn, .range::-webkit-slider-thumb { transition: none; }
@@ -268,6 +270,65 @@
 
 <body class="font-sans text-white lg:h-screen lg:overflow-hidden">
   <div class="ambient" aria-hidden="true"></div>
+  <div id="intro" class="fixed inset-0 z-50 bg-black/95 overflow-y-auto" role="dialog" aria-label="Presentación">
+    <div class="mx-auto max-w-3xl min-h-full flex flex-col px-5 py-8 sm:py-12">
+      <div class="flex items-center justify-between text-[12px] text-white/50">
+        <span id="intro-count" class="font-mono"></span>
+        <button id="intro-skip" type="button" class="glass glass-pill glass-btn px-4 py-1.5 text-white/80">Saltar a la simulación</button>
+      </div>
+      <div id="intro-body" class="flex-1 py-8"></div>
+      <div class="flex items-center justify-between">
+        <button id="intro-prev" type="button" class="glass glass-pill glass-btn px-5 py-2 text-[14px]">Anterior</button>
+        <div id="intro-dots" class="flex gap-2"></div>
+        <button id="intro-next" type="button" class="glass glass-pill glass-btn px-5 py-2 text-[14px] font-semibold"></button>
+      </div>
+    </div>
+  </div>
+  <div id="reflex" class="fixed inset-0 z-50 bg-black/95 overflow-y-auto" style="display:none" role="dialog" aria-label="Reflexión filosófica">
+    <article class="mx-auto max-w-3xl px-5 py-10 sm:py-14">
+      <div class="flex items-center justify-between text-[12px] text-white/50">
+        <span>Reflexión del autor</span>
+        <button id="reflex-close" type="button" class="glass glass-pill glass-btn px-4 py-1.5 text-white/80">Volver a la simulación</button>
+      </div>
+      <h2 class="mt-8 text-3xl sm:text-4xl font-semibold tracking-tight text-balance leading-[1.08]">La desigualdad como resultado de la libertad</h2>
+      <p class="mt-3 text-[15px] text-white/50">Una reflexión filosófico-económica</p>
+
+      <section class="mt-10">
+        <h3 class="text-xl font-semibold text-white">1. La naturaleza de la diversidad humana y la libertad individual</h3>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">La desigualdad no constituye, en sí misma, una falla del sistema ni un problema microeconómico que deba ser corregido: es el resultado natural e inevitable de la diversidad humana. Los individuos poseen de manera innata distintas preferencias, habilidades, prioridades, propensiones al riesgo y objetivos de vida.</p>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">En una sociedad libre, donde las interacciones se basan en intercambios voluntarios, estas diferencias individuales generan, por definición, resultados desiguales en el plano material. Si un individuo de un entorno vulnerable emprende, asume riesgos e innova hasta alcanzar el éxito económico, es plenamente legítimo que use los frutos de su trabajo para dar la mejor educación posible a sus hijos. Del mismo modo, quien posee conocimiento debe poder fundar un proyecto educativo de manera autónoma. Elegir la educación de la propia familia no es un privilegio concedido por el Estado, sino un derecho inherente a la libertad individual. La educación es solo uno de muchos casos donde se evidencia lo inmoral del igualitarismo forzado: el mismo principio vale para la salud, la vivienda y cualquier otro ámbito en el que se pretenda igualar los resultados por la fuerza.</p>
+      </section>
+
+      <section class="mt-10">
+        <h3 class="text-xl font-semibold text-white">2. La trampa de la centralización y la erosión de los derechos</h3>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">La pretensión de corregir estas brechas bajo el pretexto de la «justicia redistributiva» conduce a la centralización de los servicios básicos. Cuando la disparidad en el acceso a bienes como la educación o la salud se percibe como una injusticia que puede erradicarse mediante la coacción, la solución estatal suele ser la monopolización del servicio.</p>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">Así se abre una pendiente resbaladiza: si el Estado asume el control total de la educación y la salud para igualar los resultados, bajo esa misma premisa moral el paso siguiente sería centralizar la vivienda, la vestimenta y la alimentación, bienes aún más básicos que la salud y la educación, entre muchos otros. Al sustituir la libre elección por la planificación centralizada, la sociedad transita progresivamente de la libertad hacia un régimen autoritario donde el individuo pierde el dominio sobre las decisiones más elementales de su vida.</p>
+      </section>
+
+      <section class="mt-10">
+        <h3 class="text-xl font-semibold text-white">3. La quiebra de incentivos y el fracaso del cálculo económico</h3>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">Más allá del costo ético sobre la libertad individual, la planificación estatal enfrenta un problema de eficiencia difícil de superar:</p>
+        <ul class="mt-4 grid gap-3">
+          <li class="glass p-5"><p class="text-[15px] font-semibold text-white">Pérdida del sistema de precios y de la competencia</p><p class="mt-2 text-[14px] text-white/65 leading-relaxed">Al margen del juego entre la oferta y la demanda, el Estado carece de las señales (precios y beneficios) necesarias para asignar recursos con eficiencia y evaluar la calidad real de las prestaciones.</p></li>
+          <li class="glass p-5"><p class="text-[15px] font-semibold text-white">Abolición de incentivos</p><p class="mt-2 text-[14px] text-white/65 leading-relaxed">Sin la amenaza de la quiebra frente a competidores ni la recompensa del mérito para los trabajadores, los administradores estatales operan con salarios fijos y presupuestos garantizados. Se debilitan los incentivos para innovar, producir con eficiencia y mejorar de forma continua, y los servicios tienden a ser de menor calidad para toda la población.</p></li>
+          <li class="glass p-5"><p class="text-[15px] font-semibold text-white">Inviabilidad fiscal</p><p class="mt-2 text-[14px] text-white/65 leading-relaxed">Garantizar el consumo integral de la población mediante el gasto público exige niveles extraordinarios de impuestos y endeudamiento. La crisis del Estado del bienestar en varias economías europeas, con déficits fiscales estructurales, deudas soberanas elevadas y alzas en la edad de jubilación, muestra los límites de la redistribución masiva en el largo plazo.</p></li>
+        </ul>
+      </section>
+
+      <section class="mt-10">
+        <h3 class="text-xl font-semibold text-white">4. Conclusión: el bienestar real frente a la obsesión igualitaria</h3>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">El bienestar de una nación no se mide por la brecha relativa entre el decil de mayores ingresos y el de menores ingresos. Una métrica centrada en reducir el Gini desvía la atención de lo verdaderamente crucial: erradicar la pobreza absoluta y ofrecer oportunidades reales de progreso.</p>
+        <p class="mt-3 text-[15px] text-white/70 leading-relaxed text-pretty">Someter el progreso económico al mandato del igualitarismo responde con frecuencia a premisas morales cuestionables, que castigan el éxito y la productividad. Como advertía Milton Friedman:</p>
+        <blockquote class="mt-5 border-l-2 border-emerald-300/60 pl-5 text-lg italic text-white/85 leading-snug">«Una sociedad que prioriza la igualdad sobre la libertad terminará sin ninguna de las dos.»</blockquote>
+        <p class="mt-5 text-[15px] text-white/70 leading-relaxed text-pretty">El desarrollo próspero y ético de una sociedad no se edifica expropiando los frutos del trabajo de los sectores más productivos para financiar transferencias estatales, sino garantizando un marco institucional donde cada persona sea soberana y libre de llevar adelante su propio proyecto de vida.</p>
+      </section>
+
+      <div class="mt-12 flex justify-center">
+        <button id="reflex-close-2" type="button" class="glass glass-pill glass-btn px-6 py-2.5 text-[14px] font-semibold">Volver a la simulación</button>
+      </div>
+    </article>
+  </div>
+
   <div class="flex flex-col lg:flex-row lg:h-screen">
 
     <!-- ================= 3D AREA ================= -->
@@ -276,19 +337,28 @@
       <div id="labels" class="absolute inset-0 pointer-events-none" aria-hidden="true"></div>
 
       <header class="absolute top-0 inset-x-0 p-3 sm:p-4 flex items-start justify-between gap-3 pointer-events-none">
-        <div class="glass pointer-events-auto px-5 py-3 max-w-md">
+        <div class="glass pointer-events-auto px-5 py-3 max-w-xl">
           <p class="text-[11px] font-medium text-white/60">Ciudad Prosperidad · Año <span id="hud-year" class="font-mono text-white/85">25</span></p>
           <p class="text-base sm:text-lg font-semibold tracking-tight leading-snug">
             <span id="hud-gdp" class="font-mono">—</span>
             <span class="text-white/35 font-normal mx-1">·</span>
             <span class="text-sm font-medium text-white/60">Pobreza</span>
             <span id="hud-poverty" class="font-mono font-semibold t-bad">—</span>
+            <span class="text-white/35 font-normal mx-1">·</span>
+            <span class="text-sm font-medium text-white/60">Clase baja</span>
+            <span id="hud-low" class="font-mono font-semibold tx-low">—</span>
           </p>
         </div>
 
         <div class="glass glass-pill pointer-events-auto flex gap-1 p-1" role="toolbar" aria-label="Controles de la vista">
+          <button id="btn-reflex" type="button" class="glass-btn h-9 px-3 flex items-center gap-2 rounded-full text-[13px] font-medium text-white/90" aria-label="Abrir la reflexión filosófica">
+            <i data-lucide="book-open" class="w-[18px] h-[18px]"></i><span class="hidden sm:inline">Reflexión filosófica</span>
+          </button>
           <button id="btn-night" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Cambiar a vista diurna" aria-pressed="true">
             <i data-lucide="sun" class="w-[18px] h-[18px]"></i>
+          </button>
+          <button id="btn-intro" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Ver la presentación">
+            <i data-lucide="presentation" class="w-[18px] h-[18px]"></i>
           </button>
           <button id="btn-rotate" type="button" class="glass-btn h-9 w-9 grid place-items-center rounded-full text-white/85" aria-label="Activar rotación automática" aria-pressed="false">
             <i data-lucide="rotate-3d" class="w-[18px] h-[18px]"></i>
@@ -326,17 +396,11 @@
           </p>
 
           <div class="mt-5 -mx-2 px-2 py-1 flex gap-2 overflow-x-auto no-scrollbar" id="presets" role="group" aria-label="Escenarios rápidos">
-            <button type="button" data-g="0.5" data-gini="0.22" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+0,5% · Gini 0,22">
+            <button type="button" data-g="2.5" data-gini="0.25" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+2,5% potencial · Gini 0,25">
               <i data-lucide="scale" class="w-4 h-4 text-white/60"></i>Igualdad en la miseria
             </button>
-            <button type="button" data-g="9" data-gini="0.62" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+9% · Gini 0,62">
+            <button type="button" data-g="5.5" data-gini="0.50" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+5,5% · Gini 0,50">
               <i data-lucide="rocket" class="w-4 h-4 text-white/60"></i>Crecimiento desigual
-            </button>
-            <button type="button" data-g="-2" data-gini="0.55" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="−2% · Gini 0,55">
-              <i data-lucide="trending-down" class="w-4 h-4 text-white/60"></i>Estancamiento
-            </button>
-            <button type="button" data-g="7" data-gini="0.32" data-t="25" class="preset glass glass-pill glass-btn shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-medium" title="+7% · Gini 0,32">
-              <i data-lucide="sprout" class="w-4 h-4 text-white/60"></i>Crecimiento inclusivo
             </button>
           </div>
         </section>
@@ -346,11 +410,11 @@
 
           <div>
             <div class="flex items-baseline justify-between mb-3">
-              <label for="growth" class="text-[15px] text-white/85">Crecimiento anual</label>
+              <label for="growth" class="text-[15px] text-white/85">Crecimiento potencial</label>
               <output id="growth-out" for="growth" class="font-mono text-[15px] font-semibold t-good">+9,0%</output>
             </div>
-            <input id="growth" class="range" type="range" min="-5" max="15" step="0.5" value="9" style="--accent: var(--c-good)" />
-            <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>−5%</span><span>+15%</span></div>
+            <input id="growth" class="range" type="range" min="-5" max="8" step="0.5" value="7" style="--accent: var(--c-good)" />
+            <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>−5%</span><span>+8% (máx. sostenido)</span></div>
           </div>
 
           <div>
@@ -358,8 +422,9 @@
               <label for="gini" class="text-[15px] text-white/85">Desigualdad (Gini)</label>
               <output id="gini-out" for="gini" class="font-mono text-[15px] font-semibold t-bad">0,62</output>
             </div>
-            <input id="gini" class="range" type="range" min="0.20" max="0.70" step="0.01" value="0.62" style="--accent: var(--c-bad)" />
-            <div class="flex justify-between text-[11px] text-white/35 mt-2"><span>0,20 Baja</span><span>0,70 Alta</span></div>
+            <input id="gini" class="range" type="range" min="0.25" max="0.59" step="0.01" value="0.55" style="--accent: var(--c-bad)" />
+            <div class="flex justify-between text-[11px] text-white/35 mt-2"><span>0,25 Baja</span><span>0,59 Alta (Namibia)</span></div>
+            <p id="coupling-note" class="mt-2 text-[12px] text-white/50 leading-snug">—</p>
           </div>
 
           <div>
@@ -374,6 +439,12 @@
             </div>
             <input id="years" class="range" type="range" min="0" max="40" step="1" value="25" style="--accent: #8e8e93" />
             <div class="flex justify-between text-[11px] text-white/35 mt-2 font-mono"><span>0</span><span>40 años</span></div>
+            <div class="mt-4 flex items-center justify-between">
+              <label for="years-end" class="text-[13px] text-white/60">Reproducir hasta el año</label>
+              <output id="years-end-out" for="years-end" class="font-mono text-[13px] font-semibold text-white">40</output>
+            </div>
+            <input id="years-end" class="range mt-2" type="range" min="0" max="40" step="1" value="40" style="--accent: #8e8e93" />
+            <p class="text-[11px] text-white/35 mt-2">La animación parte del año marcado en el slider de tiempo.</p>
           </div>
 
         </section>
@@ -421,6 +492,11 @@
               <p class="text-[12px] text-white/50">Fin de la pobreza</p>
               <p id="m-years" class="mt-0.5 font-mono text-lg font-semibold">—</p>
               <p id="m-years-sub" class="text-[11px] text-white/40">con este ritmo</p>
+            </div>
+            <div class="inset-well px-4 py-3 col-span-2">
+              <p class="text-[12px] text-white/50">Clase baja vs. la misma ciudad con Gini 0,25</p>
+              <p id="m-bench" class="mt-0.5 font-mono text-lg font-semibold">—</p>
+              <p id="m-bench-sub" class="text-[11px] text-white/40">—</p>
             </div>
           </div>
         </section>
@@ -498,10 +574,33 @@
     }
     const Z90 = normInv(0.9);
 
-    function simulate(g, gini, t) {
-      const factor = Math.pow(1 + g, t);
+    /* Acople Gini -> crecimiento (automático). Calibración con Maddison 2020, WIID y EFW
+       (ventanas de 10 años, 1980-2018, errores agrupados por país):
+       - Ingreso >= ~$6.000: asociación directa de +0,09 pp de crecimiento por punto de Gini (IC95% 0,05 a 0,13).
+       - Ingreso < ~$6.000: cadena Estado -> crecimiento (-0,28 pp por punto del índice EFW de tamaño del Estado,
+         IC95% 0,01 a 0,56) y Estado -> Gini (-2,45 puntos de Gini por punto del índice, estimado en países ricos)
+         => ~0,11 pp por punto de Gini. Supuesto: el Estado emergente redistribuye como el rico.
+       Son asociaciones entre países, no efectos causales probados. */
+    // Referencia = Gini típico de la muestra de calibración (media 0,39; mediana 0,37; mediana de economías
+    // emergentes 0,405). Decisión de modelado: la regresión es lineal (en los datos, mayor Gini se asocia a algo más
+    // de crecimiento), pero esa asociación no se usa como bonus; solo se aplica el costo de bajar el Gini bajo 0,40.
+    const GINI_REF = 0.40;
+    const BETA_POOR = 0.11, BETA_RICH = 0.09;   // pp de crecimiento anual por punto de Gini
+    const Y_LO = 4000, Y_HI = 8000;            // transición suave en ingreso medio (USD PPA/año)
+    const giniBeta = (y) => lerp(BETA_POOR, BETA_RICH, clamp(Math.log(y / Y_LO) / Math.log(Y_HI / Y_LO), 0, 1));
+    function effGrowth(gRaw, gini, mean) {
+      // Solo hay costo al REDISTRIBUIR (bajar el Gini bajo la referencia). Nunca hay bonus.
+      const pts = Math.max(0, GINI_REF - clamp(gini, 0.25, GINI_REF)) * 100;
+      return clamp(gRaw - (giniBeta(mean) / 100) * pts, -0.9, 0.10);   // tope: ninguna economía sostiene >10% anual por décadas
+    }
+
+    function simulate(gRaw, gini, t) {
+      let m = BASE_PER_CAPITA;
+      for (let k = 0; k < t; k++) m *= 1 + effGrowth(gRaw, gini, m);
+      const mean = m;
+      const g = effGrowth(gRaw, gini, mean);   // crecimiento efectivo en el año t
+      const factor = mean / BASE_PER_CAPITA;
       const gdp = BASE_GDP * factor;
-      const mean = gdp / POPULATION;
       const sigma = Math.SQRT2 * normInv((gini + 1) / 2);
       const lorenz50 = normCdf(-sigma);
       const lorenz90 = normCdf(Z90 - sigma);
@@ -512,19 +611,14 @@
         return clamp((POVERTY_LINE - lo * y) / ((hi - lo) * y), 0, 1);
       });
       const poverty = fractions.reduce((acc, f, i) => acc + f * GROUPS[i].pop, 0);
-      return { g, gini, t, factor, gdp, mean, shares, incomes, fractions, poverty };
+      return { g, gRaw, gini, t, factor, gdp, mean, shares, incomes, fractions, poverty };
     }
 
     function yearsToEradicate(g, gini) {
-      const start = simulate(g, gini, 0);
-      if (start.poverty <= 0) return 0;
-      if (g <= 0) return Infinity;
-      let needed = 0;
-      start.incomes.forEach((y, i) => {
-        const target = POVERTY_LINE / GROUPS[i].spread[0];
-        if (y < target) needed = Math.max(needed, Math.log(target / y) / Math.log(1 + g));
-      });
-      return Math.ceil(needed - 1e-9);
+      for (let t = 0; t <= 150; t++) {
+        if (simulate(g, gini, t).fractions.every((f) => f === 0)) return t;
+      }
+      return Infinity;
     }
 
     /* =====================================================================
@@ -1346,7 +1440,7 @@
     resize();
 
     const clock = new THREE.Clock();
-    const state = { g: 0.09, gini: 0.62, t: 25, playing: false, playAcc: 0, logScale: true };
+    const state = { g: 0.07, gini: 0.55, t: 25, playing: false, playAcc: 0, logScale: true };
 
     // Audio ambiente que se carga automáticamente al activar el sonido.
     const CUSTOM_AUDIO_URL = 'ambient-city.mp3';
@@ -1684,7 +1778,7 @@
         state.playAcc += dt;
         if (state.playAcc >= 0.3) {
           state.playAcc = 0;
-          if (state.t >= 40) {
+          if (state.t >= parseInt(yearsEndInput.value, 10)) {
             setPlaying(false);
           } else {
             state.t += 1;
@@ -1711,6 +1805,7 @@
     const growthInput = $('growth');
     const giniInput = $('gini');
     const yearsInput = $('years');
+    const yearsEndInput = $('years-end');
     const soundscape = new UrbanSoundscape();
     const soundButton = $('btn-sound');
 
@@ -1881,16 +1976,16 @@
     function buildExplanation(sim) {
       const [yL, yM, yA] = sim.incomes;
       const pov = sim.poverty;
-      const start = simulate(sim.g, sim.gini, 0);
+      const start = simulate(sim.gRaw, sim.gini, 0);
       const gap = yA / yL;
       const giniTxt = num(sim.gini, 2);
       const gTxt = signedPct(sim.g, 1);
-      const yrs = yearsToEradicate(sim.g, sim.gini);
+      const yrs = yearsToEradicate(sim.gRaw, sim.gini);
       let tone, icon, title, body;
 
       if (sim.t === 0) {
         tone = 'slate'; icon = 'flag'; title = 'Año 0: el punto de partida';
-        body = `Todas las ciudades parten del mismo PIB (${moneyBig(BASE_GDP)}). Con un Gini de ${giniTxt}, la clase baja ingresa ${money(yL)} al año y el ${pct(pov)} de la población está bajo la línea de pobreza. Mueve el tiempo o pulsa reproducir para ver el efecto acumulado del crecimiento.`;
+        body = `Todas las ciudades parten del mismo PIB (${moneyBig(BASE_GDP)}). Con un Gini de ${giniTxt}, la clase baja ingresa ${money(yL)} al año y el ${pct(pov)} de la población está bajo la línea de pobreza. Al mover el tiempo o pulsar reproducir se ve el efecto acumulado del crecimiento.`;
       } else if (pov < 0.0005) {
         if (sim.gini >= 0.45) {
           tone = 'emerald'; icon = 'trending-up'; title = 'Desigualdad alta, pobreza cero';
@@ -1937,7 +2032,7 @@
       state.g = parseFloat(growthInput.value) / 100;
       state.gini = parseFloat(giniInput.value);
       state.t = parseInt(yearsInput.value, 10);
-      [growthInput, giniInput, yearsInput].forEach(updateRangeFill);
+      [growthInput, giniInput, yearsInput, yearsEndInput].forEach(updateRangeFill);
       const sim = simulate(state.g, state.gini, state.t);
       const [yL, yM, yA] = sim.incomes;
 
@@ -1946,6 +2041,17 @@
       $('gini-out').textContent = num(state.gini, 2);
       $('gini-out').className = `font-mono text-sm font-bold ${state.gini >= 0.5 ? 't-bad' : state.gini >= 0.35 ? 't-warn' : 't-good'}`;
       $('years-out').textContent = `${state.t} ${state.t === 1 ? 'año' : 'años'}`;
+      $('years-end-out').textContent = yearsEndInput.value;
+      const adj = (sim.g - sim.gRaw) * 100;
+      $('coupling-note').textContent = adj < -0.005
+        ? `Crecimiento efectivo hoy: ${signedPct(sim.g, 1)} (−${num(-adj, 2)} pp por redistribuir). Cada 0,01 de Gini que baja bajo 0,40 resta ≈${num(giniBeta(sim.mean), 2)} pp de crecimiento anual.`
+        : `Sin costo de redistribución: con Gini ≥ 0,40 el crecimiento efectivo (${signedPct(sim.g, 1)}) iguala al potencial. Cada 0,01 de Gini que baja bajo 0,40 resta ≈${num(giniBeta(sim.mean), 2)} pp.`;
+      $('hud-low').textContent = moneyShort(yL) + '/año';
+      const bench = simulate(state.g, 0.25, state.t);
+      const rel = yL / bench.incomes[0];
+      $('m-bench').textContent = `${num(rel, 2)}×`;
+      $('m-bench').className = `mt-0.5 font-mono text-lg font-semibold ${rel >= 1 ? 'text-emerald-300' : 'text-rose-300'}`;
+      $('m-bench-sub').textContent = `${moneyShort(yL)} vs ${moneyShort(bench.incomes[0])}/año · ${rel >= 1 ? 'crecer sin redistribuir deja mejor a la clase baja' : 'redistribuir deja mejor a la clase baja'}`;
 
       $('hud-year').textContent = String(state.t);
       $('hud-gdp').textContent = moneyBig(sim.gdp);
@@ -2018,9 +2124,13 @@
     }
     $('btn-play').addEventListener('click', () => {
       activateSound();
-      if (!state.playing && state.t >= 40) {
-        yearsInput.value = '0';
-        refresh();
+      if (!state.playing) {
+        const end = parseInt(yearsEndInput.value, 10);
+        if (state.t >= end) {
+          yearsInput.value = String(state.playFrom < end ? state.playFrom : 0);
+          refresh();
+        }
+        state.playFrom = state.t;
       }
       state.playAcc = 0;
       setPlaying(!state.playing);
@@ -2047,6 +2157,7 @@
       });
     });
 
+    yearsEndInput.addEventListener('input', refresh);
     $('btn-night').addEventListener('click', (e) => {
       const btn = e.currentTarget;
       env.targetNight = env.targetNight > 0.5 ? 0 : 1;
@@ -2069,6 +2180,100 @@
       controls.target.set(0, 2, 0);
       controls.update();
     });
+
+    /* ---------- Presentación inicial (datos: Banco Mundial PIP, línea $3/día) ---------- */
+    const CASES = {
+      asia: [
+        { n: 'China', y: '1981 → 2022', p: [97, 0], g: [0.282, 0.360], m: [1.3, 17.2] },
+        { n: 'Vietnam', y: '1992 → 2022', p: [57.5, 1.6], g: [0.357, 0.361], m: [3.6, 16.6] },
+        { n: 'Indonesia', y: '1984 → 2025', p: [86.2, 4.0], g: [0.323, 0.344], m: [2.0, 8.6] },
+      ],
+      latam: [
+        { n: 'Costa Rica', y: '1981 → 2025', p: [33.5, 0.8], g: [0.475, 0.455], m: [6.5, 34.1] },
+        { n: 'Panamá', y: '1979 → 2024', p: [15.6, 3.1], g: [0.487, 0.497], m: [12.2, 28.7] },
+        { n: 'Colombia', y: '1980 → 2024', p: [28.5, 8.5], g: [0.551, 0.544], m: [9.7, 19.7] },
+        { n: 'India', y: '1977 → 2022', p: [59.7, 5.3], g: [0.297, 0.255], m: [3.2, 6.4], hl: true,
+          note: 'El caso contrario: más igualdad, pero el ingreso medio apenas se duplicó y sigue en $6,4 al día (Costa Rica: $34). Igualdad con ingresos bajos no es el objetivo.' },
+      ],
+    };
+    const caseRow = (c) => `
+      <div class="py-3 border-t hairline ${c.hl ? 'rounded-xl bg-amber-400/10 ring-1 ring-amber-300/30 px-3 my-2' : ''}">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+          <span class="text-[15px] font-semibold">${c.n} <span class="text-white/40 font-normal text-[12px]">${c.y}</span></span>
+          <span class="text-[12px] text-white/50 font-mono">Gini ${num(c.g[0], 2)} → ${num(c.g[1], 2)} · ingreso medio $${num(c.m[0], 1)} → $${num(c.m[1], 1)}/día</span>
+        </div>
+        ${c.p.map((v, k) => `<div class="mt-1.5 flex items-center gap-2"><div class="h-2 rounded-full" style="width:${Math.max(0.8, v * 0.75)}%;background:${k ? '#6ee7b7' : '#fb7185'}"></div><span class="text-[12px] font-mono ${k ? 'text-emerald-300' : 'text-rose-300'}">${num(v, 1)}%</span></div>`).join('')}
+        ${c.note ? `<p class="mt-2 text-[13px] text-amber-200 leading-snug">${c.note}</p>` : ''}
+      </div>`;
+    const EURO = [
+      ['Suecia', [3.02, 1.28, 2.03]], ['Dinamarca', [3.03, 1.84, 1.43]],
+      ['Alemania', [4.90, 1.88, 2.04]], ['Francia', [3.94, 1.65, 1.17]],
+    ];
+    const euroRow = ([n, v]) => `
+      <div class="py-2 border-t hairline grid grid-cols-[84px_1fr] gap-3 items-center">
+        <span class="text-[14px] font-semibold">${n}</span>
+        <div class="grid gap-1">${v.map((x, k) => `<div class="flex items-center gap-2"><div class="h-1.5 rounded-full" style="width:${x * 15}%;background:${['#6ee7b7', '#fb7185', '#fcd34d'][k]}"></div><span class="text-[11px] font-mono text-white/60">${num(x, 1)}%</span></div>`).join('')}</div>
+      </div>`;
+    const H = (t) => `<h2 class="text-3xl sm:text-4xl font-semibold tracking-tight text-balance leading-[1.08]">${t}</h2>`;
+    const P = (t) => `<p class="mt-4 text-[15px] text-white/60 leading-relaxed text-pretty">${t}</p>`;
+    const SRC = (t) => `<p class="mt-5 text-[11px] text-white/35">${t}</p>`;
+    const CARD = (a, b, c) => `<div class="glass p-5"><p class="text-[12px] text-white/50">${a}</p><p class="mt-1 font-mono text-2xl font-semibold">${b}</p><p class="mt-1 text-[12px] text-white/50 leading-snug">${c}</p></div>`;
+    const SLIDES = [
+      () => `<p class="text-[13px] font-medium t-good">La tesis</p>${H('El enemigo no es la desigualdad. Es la pobreza absoluta.')}
+        ${P('Un pastel que crece rápido puede dar más a los pobres que uno pequeño repartido en partes iguales. Primero, lo que ocurrió en economías reales.')}
+        <div class="mt-6 glass p-5"><p class="text-[12px] text-white/50 mb-1">Población bajo $3 al día · rojo = inicio, verde = fin</p>${CASES.asia.map(caseRow).join('')}</div>
+        ${SRC('Fuente: Banco Mundial, Poverty and Inequality Platform. El Gini subió algo (China +0,08; Vietnam e Indonesia, casi nada) y aun así la pobreza extrema casi desapareció.')}`,
+      () => `<p class="text-[13px] font-medium t-good">Latinoamérica y un contraste</p>${H('Sube el ingreso medio, cae la pobreza. India muestra el contraste.')}
+        ${P('En los tres países latinoamericanos el Gini cambió poco (entre −0,02 y +0,01) mientras el ingreso medio se multiplicó entre 2 y 5 veces.')}
+        <div class="mt-6 glass p-5">${CASES.latam.map(caseRow).join('')}</div>
+        ${SRC('Fuente: Banco Mundial PIP. Ingreso medio en dólares PPA por día; pobreza bajo $3 al día.')}`,
+      () => `<p class="text-[13px] font-medium t-good">La línea de tiempo</p>${H('Europa creció siendo libre. Después agrandó el Estado.')}
+        ${P('Suecia es el caso más documentado: el gasto público pasó de cerca del 20% del PIB en 1950 a más del 50% en 1975 y llegó al 72% en 1993. Ese año tuvo un déficit de 11–13% del PIB y la deuda pasó de 41% (1990) a 73% (1996).')}
+        ${P('Luego recortó, fijó un techo de gasto (1997) y una meta de superávit: la deuda bajó a 37% del PIB en 2011. La crisis forzó la corrección.')}
+        <div class="mt-5 glass p-5">
+          <p class="text-[12px] text-white/50 mb-1">Crecimiento anual del PIB por persona · <span class="text-emerald-300">1950–73</span> · <span class="text-rose-300">1973–95</span> · <span class="text-amber-300">1995–2018</span></p>
+          ${EURO.map(euroRow).join('')}
+        </div>
+        ${P('Hoy el costo se ve en las pensiones: Dinamarca aprobó en 2025 subir la edad de jubilación a 70 años en 2040 (indexada a la esperanza de vida desde 2006) y Francia la subió a 64 en 2023. Las proyecciones de largo plazo apuntan en la misma dirección: Gokhale (NCPA/Cato, 2009, con datos de Eurostat) estimó que los compromisos futuros no financiados de la UE equivalían a cerca de 4 veces el PIB; en Suecia, más de 400% frente a una deuda oficial de 39%. Otros métodos dan cifras menores: la deuda implícita de pensiones va de cerca de 70% a unos 350% del PIB según país y método (BIS).')}
+        ${SRC('Fuentes: Maddison Project 2020; Gokhale/NCPA 2009 (vía Realtid); CEPR/VoxEU; Oxford UP (políticas nórdicas); Riksbank; BIS; CNN y AFP. Nota: toda Europa creció menos tras 1973, al terminar la reconstrucción de posguerra, así que el Estado grande no es la única explicación.')}`,
+      () => `<p class="text-[13px] font-medium t-good">¿Cuánto cuesta redistribuir?</p>${H('Cada punto menos de Gini resta crecimiento: unas 0,1 pp al año.')}
+        ${P('<b class="text-white">pp = puntos porcentuales.</b> Si una economía crece 5,0% y pierde 0,1 pp, pasa a crecer 4,9%. Parece poco, pero se acumula.')}
+        ${P('Con datos de 152 países (1980–2018) se encadenan dos relaciones. El índice de tamaño del Estado del Fraser Institute va de 0 a 10; a mayor puntaje, Estado más pequeño.')}
+        <div class="mt-5 grid sm:grid-cols-3 gap-3">
+          ${CARD('1. Estado y crecimiento (economías emergentes)', '−0,28 pp', 'por cada punto del índice que el Estado crece. IC 95%: 0,01 a 0,56.')}
+          ${CARD('2. Estado y Gini (países ricos)', '−2,5 pts', 'de Gini por cada punto del índice que el Estado crece. IC 95%: 1,9 a 3,0.')}
+          ${CARD('3. Resultado', '≈ 0,1 pp', 'de crecimiento por cada punto que baja el Gini. En países de ingreso alto, la medición directa da +0,09.')}
+        </div>
+        ${P('Ejemplo: bajar el Gini de 0,40 a 0,25 (15 puntos) resta ≈1,5 pp: la economía crece 3,5% en vez de 5,0%. En 25 años, la ciudad se multiplica por 2,4 en vez de 3,4.')}
+        ${SRC('Fuentes: Maddison 2020, WIID, EFW. Son asociaciones entre países, no efectos causales probados, y para economías emergentes asumimos que el Estado redistribuye como en los países ricos. El punto de partida (Gini 0,40) es el Gini típico de la muestra (media 0,39). Por encima de 0,40 no se suma crecimiento extra; la simulación aplica el costo entre Gini 0,25 y 0,40.')}`,
+      () => `<p class="text-[13px] font-medium t-good">La simulación</p>${H('Cualquier combinación de reparto y ritmo se puede probar.')}
+        ${P('Se ajustan el crecimiento potencial, el Gini y el tiempo. El crecimiento efectivo baja automáticamente cuando baja el Gini, con los coeficientes de la lámina anterior. El crecimiento potencial es el que tendría la ciudad sin redistribución (Gini de 0,40 o más), con tope de 8% anual: el rango más alto que han sostenido las economías de crecimiento más rápido.')}
+        <ul class="mt-5 grid gap-3 text-[14px] text-white/75">
+          <li class="glass p-4">Lo central es el ingreso absoluto de la clase baja, no solo la brecha.</li>
+          <li class="glass p-4">La tarjeta de comparación contrasta el escenario con la misma ciudad a Gini 0,25.</li>
+          <li class="glass p-4">Límite: el Gini es constante durante los años simulados. No modela cuándo se expande el Estado ni la deuda futura.</li>
+        </ul>`,
+    ];
+    let slideIdx = 0;
+    function renderIntro() {
+      $('intro-body').innerHTML = `<div class="fade-in">${SLIDES[slideIdx]()}</div>`;
+      $('intro-count').textContent = `${slideIdx + 1} / ${SLIDES.length}`;
+      $('intro-dots').innerHTML = SLIDES.map((_, k) => `<span class="h-1.5 w-1.5 rounded-full ${k === slideIdx ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
+      $('intro-prev').style.visibility = slideIdx ? 'visible' : 'hidden';
+      $('intro-next').textContent = slideIdx === SLIDES.length - 1 ? 'Entrar a la simulación' : 'Siguiente';
+    }
+    const closeIntro = () => { $('intro').style.display = 'none'; };
+    $('intro-next').addEventListener('click', () => { if (slideIdx === SLIDES.length - 1) closeIntro(); else { slideIdx++; renderIntro(); } });
+    $('intro-prev').addEventListener('click', () => { slideIdx = Math.max(0, slideIdx - 1); renderIntro(); });
+    $('intro-skip').addEventListener('click', closeIntro);
+    const reflexEl = $('reflex');
+    const closeReflex = () => { reflexEl.style.display = 'none'; };
+    $('btn-reflex').addEventListener('click', () => { reflexEl.style.display = ''; reflexEl.scrollTop = 0; });
+    $('reflex-close').addEventListener('click', closeReflex);
+    $('reflex-close-2').addEventListener('click', closeReflex);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeReflex(); });
+    $('btn-intro').addEventListener('click', () => { slideIdx = 0; renderIntro(); $('intro').style.display = ''; });
+    renderIntro();
 
     lucide.createIcons();
     refresh();
